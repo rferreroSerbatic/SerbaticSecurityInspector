@@ -1,4 +1,4 @@
-export type Severity = 'critical' | 'high' | 'medium' | 'low'
+import type { Severity } from '../../types'
 
 const SEVERITY_STYLES: Record<Severity, { label: string; color: string }> = {
   critical: { label: 'CRÍTICO', color: '#ff2d95' },

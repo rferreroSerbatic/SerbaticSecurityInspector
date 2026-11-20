@@ -1,0 +1,63 @@
+export type Severity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface Vuln {
+  id: string
+  name: string
+  icon: string
+  description: string
+}
+
+export interface Finding {
+  id: string
+  vulnId: string
+  severity: Severity
+  title: string
+  file: string
+  line: number
+  snippet: string
+  exploit: string
+  consequences: string
+  solution: string
+}
+
+export type AgentStatus = 'pending' | 'running' | 'done'
+
+export interface AgentProgress {
+  vulnId: string
+  status: AgentStatus
+  progress: number // 0..100
+  currentFile?: string
+  findingsCount?: number
+  criticalCount?: number
+}
+
+export interface LogLine {
+  id: string
+  time: string
+  vulnId: string
+  severity?: Severity
+  message: string
+}
+
+export interface AnalysisProgress {
+  status: 'idle' | 'running' | 'done'
+  globalProgress: number // 0..100
+  agents: AgentProgress[]
+  logLines: LogLine[]
+  findings: Finding[]
+  meta?: { files: number; lines: number; durationMin: number }
+}
+
+export type SourceKind = 'folder' | 'git'
+
+export interface Source {
+  kind: SourceKind
+  label: string
+  value: string
+}
+
+export type Step = 'home' | 'source' | 'vulns' | 'progress' | 'summary'
+
+export interface AnalysisService {
+  run(opts: { source: Source; vulnIds: string[] }, onUpdate: (p: AnalysisProgress) => void): () => void // devuelve cancel()
+}
