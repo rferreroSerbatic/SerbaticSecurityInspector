@@ -813,9 +813,9 @@ ALCANCE TÉCNICO DE MEJORA — SEGURIDAD
 Proyecto: {projectName} · {dd/mm/aaaa} · Serbatic Security Inspector
 
 1. {TÍTULO EN MAYÚSCULAS} ({NOMBRE CORTO DE LA VULN}) — {CRÍTICO|ALTO|MEDIO|BAJO}
-Objetivo: eliminar {título en minúsculas} detectado en {file}.
+Objetivo: eliminar {título (caso original)} detectado en {file}.
 · Revisar la ocurrencia en {file}:{line} y aplicar la solución recomendada.
-· Validar el cambio con una prueba que cubra el caso de {título en minúsculas}.
+· Validar el cambio con una prueba que cubra el caso de {título (caso original)}.
 Estimación: {H} h · Prioridad: {P}
 
 2. …
