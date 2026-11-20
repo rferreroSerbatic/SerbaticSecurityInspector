@@ -26,7 +26,8 @@ const renderScreen = (
   )
 
 test('renderiza las 10 vulns con código, nombre y descripción', () => {
-  renderScreen(['A01'])
+  const { container } = renderScreen(['A01'])
+  expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
   for (const v of OWASP_VULNS) {
     expect(screen.getByText(v.id)).toBeInTheDocument()
     expect(screen.getByText(v.name)).toBeInTheDocument()
