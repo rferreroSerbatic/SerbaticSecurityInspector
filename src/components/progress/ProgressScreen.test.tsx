@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { OWASP_VULNS } from '../../data/owasp'
-import type { AnalysisProgress } from '../../types'
+import type { AnalysisProgress, LogLine } from '../../types'
 import { ProgressScreen } from './ProgressScreen'
 
 afterEach(cleanup)
@@ -89,6 +89,26 @@ test('renderiza las líneas del log en orden', () => {
   expect(screen.getByText('iniciando análisis de 4 vulnerabilidades…')).toBeInTheDocument()
   // la línea de sistema no debe renderizar su vulnId 'global' como tag
   expect(screen.queryByText('global')).not.toBeInTheDocument()
+})
+
+test('mantiene el log auto-scrollado en la última línea al añadir líneas', () => {
+  const { rerender } = render(<ProgressScreen analysis={base} />)
+  const log = screen.getByTestId('live-log')
+
+  // jsdom no hace layout (scrollHeight = 0): se simula una consola desbordada.
+  Object.defineProperty(log, 'scrollHeight', { value: 500, configurable: true })
+
+  const extra: LogLine = {
+    id: 'log-4',
+    time: '02:00',
+    vulnId: 'A03',
+    message: 'siguiente línea del log',
+  }
+  rerender(<ProgressScreen analysis={{ ...base, logLines: [...base.logLines, extra] }} />)
+
+  // el contenedor no cambia y el viewport queda al final
+  expect(screen.getByTestId('live-log')).toBe(log)
+  expect(log.scrollTop).toBe(500)
 })
 
 test('con 10 agentes la lista renderiza los 10 en orden A01..A10 (ejecución completa)', () => {

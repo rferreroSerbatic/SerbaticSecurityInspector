@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { OWASP_VULNS } from '../../data/owasp'
 import type { LogLine, Severity } from '../../types'
 
@@ -11,8 +12,17 @@ const SEVERITY_TAG_CLASS: Record<Severity, string> = {
 }
 
 export function LiveLog({ lines }: { lines: LogLine[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll: al añadir líneas, mantener el viewport en la más reciente.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [lines.length])
+
   return (
     <div
+      ref={scrollRef}
       data-testid="live-log"
       className="mt-6 max-h-48 overflow-y-auto border-t border-ink-dim/20 bg-black/40 px-4 py-3 font-mono text-xs leading-relaxed"
     >
