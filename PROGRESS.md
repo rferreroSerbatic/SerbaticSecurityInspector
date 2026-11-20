@@ -33,7 +33,7 @@
 - [x] Task 7: AppShell + StepIndicator *(commit 5f1ff7f, review limpia)*
 - [x] Task 8: HomeScreen *(commit 5339a1e, review limpia)*
 - [x] Task 9: SourceScreen (carpeta mock + URL git) *(commit 4634703, review limpia)*
-- [x] Task 10: VulnSelectScreen (lista vertical) *(commit 49b69bc, review pendiente)*
+- [x] Task 10: VulnSelectScreen (lista vertical) *(commits 49b69bc+91b3c97, fix round tras review: select-all por conjunto)*
 - [ ] Task 11: ProgressScreen (progreso en vivo)
 - [ ] Task 12: SummaryScreen (resumen de hallazgos)
 - [ ] Task 13: `buildScopeText` (texto del alcance)
