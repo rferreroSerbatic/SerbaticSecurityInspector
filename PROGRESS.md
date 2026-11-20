@@ -6,8 +6,8 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** **Task 6** (servicio mock de análisis) — ejecutada por subagente
-- **Siguiente tarea:** Task 6 → Task 7 (AppShell + StepIndicator)
+- **Tarea en curso:** **Task 7** (AppShell + StepIndicator) — ejecutada por subagente
+- **Siguiente tarea:** Task 7 → Task 8 (HomeScreen)
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
@@ -29,7 +29,7 @@
 - [x] Task 3: Tipos de dominio + datos OWASP Top 10 *(commit 1fb3f66, review limpia)*
 - [x] Task 4: Hallazgos mock (A10 con 0 a propósito) *(commits 0f5957e+5f0f3a7, review limpia tras 1 fix round)*
 - [x] Task 5: Máquina de estados `useAnalysis` *(commit abe7aca, review limpia)*
-- [ ] Task 6: `mockAnalysisService` (agentes secuenciales, log, cancel)
+- [x] Task 6: `mockAnalysisService` (agentes secuenciales, log, cancel) *(commit 8a72961, review limpia)*
 - [ ] Task 7: AppShell + StepIndicator
 - [ ] Task 8: HomeScreen
 - [ ] Task 9: SourceScreen (carpeta mock + URL git)
