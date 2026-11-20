@@ -5,7 +5,7 @@ import type { Source } from '../../types'
 
 declare module 'react' {
   interface InputHTMLAttributes<T> {
-    webkitdirectory?: boolean
+    webkitdirectory?: string
   }
 }
 
@@ -122,7 +122,7 @@ export function SourceScreen({
                 ref={folderInputRef}
                 type="file"
                 multiple
-                webkitdirectory
+                webkitdirectory=""
                 className="hidden"
                 aria-label="Seleccionar carpeta local"
                 onChange={handleFolderChange}
