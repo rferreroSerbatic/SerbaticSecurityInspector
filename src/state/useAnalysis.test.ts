@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useAnalysis } from './useAnalysis'
-import type { AnalysisProgress, AnalysisService, Source } from '../types'
+import type { AnalysisProgress, AnalysisService, Finding, Source } from '../types'
 import { OWASP_VULNS } from '../data/owasp'
 
 const IDS = OWASP_VULNS.map(v => v.id)
@@ -9,9 +9,10 @@ const IDS = OWASP_VULNS.map(v => v.id)
 class FakeService implements AnalysisService {
   runCount = 0
   cancel = vi.fn()
+  constructor(private readonly findings: Finding[] = []) {}
   run(_opts: { source: Source; vulnIds: string[] }, onUpdate: (p: AnalysisProgress) => void) {
     this.runCount++
-    onUpdate({ status: 'done', globalProgress: 100, agents: [], logLines: [], findings: [] })
+    onUpdate({ status: 'done', globalProgress: 100, agents: [], logLines: [], findings: this.findings })
     return this.cancel
   }
 }
@@ -95,4 +96,57 @@ test('cancela el análisis en curso al desmontar', () => {
   act(() => result.current.startAnalysis())
   unmount()
   expect(service.cancel).toHaveBeenCalled()
+})
+
+test('goVulns cancela el análisis en curso y vuelve a vulns', () => {
+  const service = new HangingService()
+  const { result } = setup(service)
+  act(() => result.current.goSource())
+  act(() => result.current.setSource({ kind: 'git', label: 'org/repo', value: 'https://github.com/org/repo' }))
+  act(() => result.current.startAnalysis())
+  expect(result.current.step).toBe('progress')
+  act(() => result.current.goVulns())
+  expect(result.current.step).toBe('vulns')
+  expect(service.cancel).toHaveBeenCalled()
+})
+
+test('goVulns sin fuente es no-op', () => {
+  const { result } = setup(new FakeService())
+  act(() => result.current.goVulns())
+  expect(result.current.step).toBe('home')
+})
+
+test('goSource cancela un análisis en curso', () => {
+  const service = new HangingService()
+  const { result } = setup(service)
+  act(() => result.current.setSource(folder))
+  act(() => result.current.startAnalysis())
+  act(() => result.current.goSource())
+  expect(result.current.step).toBe('source')
+  expect(service.cancel).toHaveBeenCalled()
+})
+
+test('volver de summary a vulns conserva el análisis hecho', () => {
+  const finding: Finding = {
+    id: 'A01-1',
+    vulnId: 'A01',
+    severity: 'high',
+    title: 'Control de acceso insuficiente',
+    file: 'src/users.ts',
+    line: 12,
+    snippet: 'return user',
+    exploit: 'Acceso no autorizado.',
+    consequences: 'Exposición de datos.',
+    solution: 'Validar el propietario.',
+  }
+  const { result } = setup(new FakeService([finding]))
+  act(() => result.current.setSource(folder))
+  act(() => result.current.startAnalysis())
+  expect(result.current.step).toBe('summary')
+  expect(result.current.analysis.status).toBe('done')
+  const findingsLength = result.current.analysis.findings.length
+  act(() => result.current.goVulns())
+  expect(result.current.step).toBe('vulns')
+  expect(result.current.analysis.status).toBe('done')
+  expect(result.current.analysis.findings).toHaveLength(findingsLength)
 })

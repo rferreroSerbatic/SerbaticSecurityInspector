@@ -1,5 +1,5 @@
-import { afterEach, expect, test } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AppShell } from './AppShell'
 import { StepIndicator } from './StepIndicator'
 
@@ -7,7 +7,7 @@ afterEach(cleanup)
 
 test('renderiza la marca SERBATIC e INSPECTOR', () => {
   render(
-    <AppShell step="source">
+    <AppShell step="source" onGoSource={() => {}} onGoVulns={() => {}}>
       <p>contenido</p>
     </AppShell>,
   )
@@ -17,7 +17,7 @@ test('renderiza la marca SERBATIC e INSPECTOR', () => {
 
 test('renderiza una única capa ambiental fija a toda la viewport', () => {
   const { container } = render(
-    <AppShell step="home">
+    <AppShell step="home" onGoSource={() => {}} onGoVulns={() => {}}>
       <p>contenido</p>
     </AppShell>,
   )
@@ -29,14 +29,26 @@ test('renderiza una única capa ambiental fija a toda la viewport', () => {
 })
 
 test('StepIndicator marca completados con ✓ y el actual en magenta', () => {
-  render(<StepIndicator step="vulns" />)
+  render(<StepIndicator step="vulns" onGoSource={() => {}} onGoVulns={() => {}} />)
   expect(screen.getByText(/1 FUENTE/)).toHaveTextContent('✓')
   expect(screen.getByText('2 VULNERABILIDADES')).toHaveClass('text-neon-magenta')
 })
 
+test('los pasos completados son botones clicables hacia atrás', () => {
+  const onGoSource = vi.fn()
+  const onGoVulns = vi.fn()
+  render(<StepIndicator step="progress" onGoSource={onGoSource} onGoVulns={onGoVulns} />)
+  fireEvent.click(screen.getByRole('button', { name: /volver a 1 fuente/i }))
+  expect(onGoSource).toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: /volver a 2 vulnerabilidades/i }))
+  expect(onGoVulns).toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: /3 análisis/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /4 informe/i })).not.toBeInTheDocument()
+})
+
 test('no muestra el StepIndicator en home', () => {
   render(
-    <AppShell step="home">
+    <AppShell step="home" onGoSource={() => {}} onGoVulns={() => {}}>
       <p>contenido</p>
     </AppShell>,
   )

@@ -22,6 +22,7 @@ export interface UseAnalysis {
   selectedFindingIds: string[]
   scopeOpen: boolean
   goSource(): void
+  goVulns(): void
   setSource(s: Source): void
   toggleVuln(id: string): void
   setAllVulns(ids: string[]): void
@@ -62,8 +63,17 @@ export function useAnalysis(service: AnalysisService): UseAnalysis {
   }, [])
 
   const goSource = useCallback(() => {
+    cancelRef.current?.()
+    cancelRef.current = null
     setStep('source')
   }, [])
+
+  const goVulns = useCallback(() => {
+    if (!source) return
+    cancelRef.current?.()
+    cancelRef.current = null
+    setStep('vulns')
+  }, [source])
 
   const setSource = useCallback((s: Source) => {
     setSourceState(s)
@@ -135,6 +145,7 @@ export function useAnalysis(service: AnalysisService): UseAnalysis {
     selectedFindingIds,
     scopeOpen,
     goSource,
+    goVulns,
     setSource,
     toggleVuln,
     setAllVulns,

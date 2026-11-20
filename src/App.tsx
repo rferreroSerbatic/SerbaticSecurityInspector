@@ -32,7 +32,7 @@ export default function App({ service = createMockAnalysisService() }: { service
           />
         )
       case 'progress':
-        return <ProgressScreen analysis={flow.analysis} />
+        return <ProgressScreen analysis={flow.analysis} onBack={flow.goVulns} />
       case 'summary':
         return (
           <SummaryScreen
@@ -41,6 +41,7 @@ export default function App({ service = createMockAnalysisService() }: { service
             onToggleFinding={flow.toggleFinding}
             onGenerateScope={flow.openScope}
             onNewAudit={flow.newAudit}
+            onBack={flow.goVulns}
           />
         )
       default:
@@ -49,7 +50,7 @@ export default function App({ service = createMockAnalysisService() }: { service
   })()
 
   return (
-    <AppShell step={flow.step}>
+    <AppShell step={flow.step} onGoSource={flow.goSource} onGoVulns={flow.goVulns}>
       {screen}
       {flow.scopeOpen && (
         <ScopeModal

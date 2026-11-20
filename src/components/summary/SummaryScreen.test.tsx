@@ -75,6 +75,7 @@ const renderScreen = (
     onToggleFinding?: (id: string) => void
     onGenerateScope?: () => void
     onNewAudit?: () => void
+    onBack?: () => void
   } = {},
 ) =>
   render(
@@ -84,6 +85,7 @@ const renderScreen = (
       onToggleFinding={handlers.onToggleFinding ?? (() => {})}
       onGenerateScope={handlers.onGenerateScope ?? (() => {})}
       onNewAudit={handlers.onNewAudit ?? (() => {})}
+      onBack={handlers.onBack ?? (() => {})}
     />,
   )
 
@@ -181,6 +183,7 @@ test('marcar hallazgos actualiza el contador del pie y habilita generar', () => 
       onToggleFinding={onToggleFinding}
       onGenerateScope={() => {}}
       onNewAudit={() => {}}
+      onBack={() => {}}
     />,
   )
 
@@ -232,6 +235,13 @@ test('sin críticos, el primer hallazgo queda expandido por defecto', () => {
 
   expect(screen.getByText(findings[1].exploit)).toBeInTheDocument()
   expect(screen.queryByText(findings[2].exploit)).not.toBeInTheDocument()
+})
+
+test('«← Volver» llama a onBack', () => {
+  const onBack = vi.fn()
+  renderScreen(base, [], { onBack })
+  fireEvent.click(screen.getByRole('button', { name: /← volver/i }))
+  expect(onBack).toHaveBeenCalled()
 })
 
 test('GENERAR ALCANCE llama a onGenerateScope y NUEVA AUDITORÍA llama a onNewAudit', () => {

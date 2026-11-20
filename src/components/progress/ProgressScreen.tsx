@@ -6,7 +6,13 @@ import { LiveLog } from './LiveLog'
 
 const VULN_BY_ID = new Map(OWASP_VULNS.map(v => [v.id, v]))
 
-export function ProgressScreen({ analysis }: { analysis: AnalysisProgress }) {
+export function ProgressScreen({
+  analysis,
+  onBack,
+}: {
+  analysis: AnalysisProgress
+  onBack: () => void
+}) {
   return (
     <section className="relative flex min-h-[70vh] flex-col justify-center">
       <div className="relative max-w-2xl">
@@ -42,6 +48,16 @@ export function ProgressScreen({ analysis }: { analysis: AnalysisProgress }) {
         </div>
 
         <LiveLog lines={analysis.logLines} />
+
+        <div className="mt-8">
+          <button
+            type="button"
+            onClick={onBack}
+            className="font-mono text-xs uppercase tracking-widest text-ink-dim transition-colors duration-200 hover:text-neon-cyan"
+          >
+            ← Volver
+          </button>
+        </div>
       </div>
     </section>
   )

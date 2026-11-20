@@ -1,5 +1,5 @@
-import { afterEach, expect, test } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { afterEach, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { OWASP_VULNS } from '../../data/owasp'
 import type { AnalysisProgress, LogLine } from '../../types'
 import { ProgressScreen } from './ProgressScreen'
@@ -40,7 +40,7 @@ const base: AnalysisProgress = {
 }
 
 test('renderiza cada agente con su estado y sus contadores', () => {
-  render(<ProgressScreen analysis={base} />)
+  render(<ProgressScreen analysis={base} onBack={() => {}} />)
 
   const [rowA01, rowA02, rowA03, rowA06] = screen.getAllByTestId('agent-row')
 
@@ -63,7 +63,7 @@ test('renderiza cada agente con su estado y sus contadores', () => {
 })
 
 test('renderiza el progreso global 45%', () => {
-  const { container } = render(<ProgressScreen analysis={base} />)
+  const { container } = render(<ProgressScreen analysis={base} onBack={() => {}} />)
   expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
 
   expect(screen.getByText('Análisis en curso')).toBeInTheDocument()
@@ -76,7 +76,7 @@ test('renderiza el progreso global 45%', () => {
 })
 
 test('renderiza las líneas del log en orden', () => {
-  render(<ProgressScreen analysis={base} />)
+  render(<ProgressScreen analysis={base} onBack={() => {}} />)
 
   const log = screen.getByTestId('live-log')
   expect(log).toBeInTheDocument()
@@ -93,7 +93,7 @@ test('renderiza las líneas del log en orden', () => {
 })
 
 test('mantiene el log auto-scrollado en la última línea al añadir líneas', () => {
-  const { rerender } = render(<ProgressScreen analysis={base} />)
+  const { rerender } = render(<ProgressScreen analysis={base} onBack={() => {}} />)
   const log = screen.getByTestId('live-log')
 
   // jsdom no hace layout (scrollHeight = 0): se simula una consola desbordada.
@@ -105,7 +105,7 @@ test('mantiene el log auto-scrollado en la última línea al añadir líneas', (
     vulnId: 'A03',
     message: 'siguiente línea del log',
   }
-  rerender(<ProgressScreen analysis={{ ...base, logLines: [...base.logLines, extra] }} />)
+  rerender(<ProgressScreen analysis={{ ...base, logLines: [...base.logLines, extra] }} onBack={() => {}} />)
 
   // el contenedor no cambia y el viewport queda al final
   expect(screen.getByTestId('live-log')).toBe(log)
@@ -127,10 +127,17 @@ test('con 10 agentes la lista renderiza los 10 en orden A01..A10 (ejecución com
     findings: [],
     meta: { files: 128, lines: 3412, durationMin: 14 },
   }
-  render(<ProgressScreen analysis={full} />)
+  render(<ProgressScreen analysis={full} onBack={() => {}} />)
 
   const rows = screen.getAllByTestId('agent-row')
   expect(rows).toHaveLength(10)
   const ids = rows.map(r => within(r).getByText(/A\d{2}/).textContent)
   expect(ids).toEqual(OWASP_VULNS.map(v => v.id))
+})
+
+test('«← Volver» llama a onBack', () => {
+  const onBack = vi.fn()
+  render(<ProgressScreen analysis={base} onBack={onBack} />)
+  fireEvent.click(screen.getByRole('button', { name: /← volver/i }))
+  expect(onBack).toHaveBeenCalled()
 })

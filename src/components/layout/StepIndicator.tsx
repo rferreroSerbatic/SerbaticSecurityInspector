@@ -8,7 +8,15 @@ const STEPS: { key: Exclude<Step, 'home'>; label: string }[] = [
   { key: 'summary', label: '4 INFORME' },
 ]
 
-export function StepIndicator({ step }: { step: Step }) {
+export function StepIndicator({
+  step,
+  onGoSource,
+  onGoVulns,
+}: {
+  step: Step
+  onGoSource: () => void
+  onGoVulns: () => void
+}) {
   const currentIndex = STEPS.findIndex((s) => s.key === step)
   return (
     <nav
@@ -20,9 +28,20 @@ export function StepIndicator({ step }: { step: Step }) {
           {i > 0 && (
             <span aria-hidden="true">·</span>
           )}
-          <span className={i === currentIndex ? 'text-neon-magenta' : undefined}>
-            {i < currentIndex ? `${s.label} ✓` : s.label}
-          </span>
+          {i < currentIndex ? (
+            <button
+              type="button"
+              aria-label={`Volver a ${s.label}`}
+              onClick={s.key === 'source' ? onGoSource : onGoVulns}
+              className="transition-colors duration-200 hover:text-neon-cyan"
+            >
+              {`${s.label} ✓`}
+            </button>
+          ) : (
+            <span className={i === currentIndex ? 'text-neon-magenta' : undefined}>
+              {s.label}
+            </span>
+          )}
         </Fragment>
       ))}
     </nav>

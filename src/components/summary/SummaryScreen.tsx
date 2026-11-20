@@ -28,12 +28,14 @@ export function SummaryScreen({
   onToggleFinding,
   onGenerateScope,
   onNewAudit,
+  onBack,
 }: {
   analysis: AnalysisProgress
   selectedFindingIds: string[]
   onToggleFinding: (id: string) => void
   onGenerateScope: () => void
   onNewAudit: () => void
+  onBack: () => void
 }) {
   const { agents, findings, meta } = analysis
   const total = findings.length
@@ -124,9 +126,18 @@ export function SummaryScreen({
         </div>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-ink-dim">
-            {selectedFindingIds.length} DE {total} HALLAZGOS MARCADOS PARA EL ALCANCE
-          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-ink-dim">
+              {selectedFindingIds.length} DE {total} HALLAZGOS MARCADOS PARA EL ALCANCE
+            </p>
+            <button
+              type="button"
+              onClick={onBack}
+              className="font-mono text-xs uppercase tracking-widest text-ink-dim transition-colors duration-200 hover:text-neon-cyan"
+            >
+              ← Volver
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <NeonButton variant="ghost" onClick={onNewAudit}>
               NUEVA AUDITORÍA

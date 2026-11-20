@@ -2,7 +2,17 @@ import type { ReactNode } from 'react'
 import type { Step } from '../../types'
 import { StepIndicator } from './StepIndicator'
 
-export function AppShell({ step, children }: { step: Step; children: ReactNode }) {
+export function AppShell({
+  step,
+  onGoSource,
+  onGoVulns,
+  children,
+}: {
+  step: Step
+  onGoSource: () => void
+  onGoVulns: () => void
+  children: ReactNode
+}) {
   return (
     <div className="flex min-h-screen flex-col bg-night text-ink">
       <div
@@ -29,7 +39,9 @@ export function AppShell({ step, children }: { step: Step; children: ReactNode }
             INSPECTOR
           </span>
         </span>
-        {step !== 'home' && <StepIndicator step={step} />}
+        {step !== 'home' && (
+          <StepIndicator step={step} onGoSource={onGoSource} onGoVulns={onGoVulns} />
+        )}
       </header>
       <main className="relative z-10 mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
     </div>
