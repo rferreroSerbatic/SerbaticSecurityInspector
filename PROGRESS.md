@@ -6,8 +6,8 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** **Task 15** (cableado E2E + QA visual) — ejecutada por subagente
-- **Siguiente tarea:** Task 15 → fin de Fase 1 (revisión de rama completa + push a GitHub)
+- **Tarea en curso:** ninguna — **15/15 tasks completadas**; en final review de rama completa (SDD)
+- **Siguiente tarea:** final review → fix wave si procede → QA visual en navegador (residuales R1–R6) → push a GitHub + tag v0.1.0
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
@@ -38,7 +38,7 @@
 - [x] Task 12: SummaryScreen (resumen de hallazgos) *(commit b1ce397, review limpia)*
 - [x] Task 13: `buildScopeText` (texto del alcance) *(commit 33aa870, review limpia tras 1 fix round: ruling de casing + enmienda del plan)*
 - [ ] Task 14: ScopeModal (editable, copiar, PDF-stub)
-- [ ] Task 15: Cableado E2E + QA visual contra mockups
+- [x] Task 15: Cableado E2E + QA visual contra mockups *(commit ccba51e, review limpia; QA browser residual R1–R6 para el usuario)*
 
 ## Entorno
 
