@@ -14,6 +14,12 @@ const openGitTab = () =>
 
 const gitInput = () => screen.getByPlaceholderText('https://github.com/org/repo')
 
+const folderFile = (relPath: string) => {
+  const f = new File(['x'], relPath.split('/').pop() ?? 'x')
+  Object.defineProperty(f, 'webkitRelativePath', { value: relPath })
+  return f
+}
+
 test('continuar está deshabilitado sin fuente', () => {
   const { container } = renderScreen()
   expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
@@ -82,4 +88,36 @@ test('acepta https://… y git@github.com:user/repo.git (con o sin .git)', () =>
     label: 'github.com/org/repo',
     value: 'https://github.com/org/repo',
   })
+})
+
+test('seleccionar una carpeta real muestra confirmación y habilita CONTINUAR', () => {
+  const spy = vi.fn()
+  renderScreen(spy)
+  const input = screen.getByLabelText(/seleccionar carpeta local/i)
+  fireEvent.change(input, {
+    target: { files: [folderFile('mi-carpeta/src/a.ts'), folderFile('mi-carpeta/src/b.ts')] },
+  })
+  expect(screen.getByText(/carpeta seleccionada: mi-carpeta \(2 archivos\)/i)).toBeInTheDocument()
+  expect(continueBtn()).toBeEnabled()
+  fireEvent.click(continueBtn())
+  expect(spy).toHaveBeenCalledWith({ kind: 'folder', label: 'mi-carpeta', value: 'mi-carpeta' })
+})
+
+test('elegir carpeta real deselecciona el proyecto demo (prioridad de la carpeta)', () => {
+  const spy = vi.fn()
+  renderScreen(spy)
+  fireEvent.click(screen.getByRole('radio', { name: /webapp-acme/i }))
+  const input = screen.getByLabelText(/seleccionar carpeta local/i)
+  fireEvent.change(input, { target: { files: [folderFile('otra-carpeta/x.py')] } })
+  expect(screen.getByRole('radio', { name: /webapp-acme/i })).toHaveAttribute('aria-checked', 'false')
+  fireEvent.click(continueBtn())
+  expect(spy).toHaveBeenCalledWith({ kind: 'folder', label: 'otra-carpeta', value: 'otra-carpeta' })
+})
+
+test('carpeta vacía (0 archivos) no selecciona nada', () => {
+  renderScreen()
+  const input = screen.getByLabelText(/seleccionar carpeta local/i)
+  fireEvent.change(input, { target: { files: [] } })
+  expect(screen.queryByText(/carpeta seleccionada/i)).not.toBeInTheDocument()
+  expect(continueBtn()).toBeDisabled()
 })
