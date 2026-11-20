@@ -31,5 +31,5 @@ Backend real, análisis real de código, PDF real, API keys, Docker, i18n, auth.
 
 ## Entorno
 
-- Windows + PowerShell. Se requiere **Node 20 LTS** (comprobar con `node --version` al arrancar; si es v14, avisar antes de nada).
+- Windows + PowerShell. Node instalado: **v26.13.1** (el floor del plan es Node ≥ 20). Si `node --version` da otra cosa, avisar antes de nada.
 - GitHub: cuenta `rferreroSerbatic`, repo `SerbaticSecurityInspector` (privado).

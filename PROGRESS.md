@@ -6,11 +6,11 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** ninguna
-- **Siguiente tarea:** **Task 1** del plan (scaffold Vite+React+TS+Tailwind + git/GitHub)
+- **Tarea en curso:** **Task 1** (scaffold Vite+React+TS+Tailwind) — ejecutada por subagente
+- **Siguiente tarea:** Task 1 (en curso) → Task 2 (primitivas UI)
 - **Bloqueos / pendientes externos:**
-  - ⚠️ **Instalar Node 20 LTS** (la máquina tiene Node 14 EOL). Sin esto no arranca la Task 1.
-  - ⚠️ **GitHub:** CLI `gh` no está instalado. Opción A: crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push`. Opción B: `winget install GitHub.cli` y `gh auth login`.
+  - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
+  - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
   - Python no instalado (solo se necesita en Fase 2).
 
 ## Cómo retomar (para una sesión nueva)
@@ -44,9 +44,9 @@
 
 | Cosa | Estado |
 |---|---|
-| Node | v14 (EOL) → **instalar Node 20 LTS** antes de Task 1 |
-| npm | 6.14 (viene con Node 14; se actualiza con Node 20) |
-| git | 2.56 ✓ (repo local inicializado) |
+| Node | **v26.13.1** ✓ (instalado 2026-11-20) |
+| npm | 11.20.0 ✓ |
+| git | 2.56 ✓ (repo local inicializado, commit 0 hecho) |
 | Python | no instalado (Fase 2) |
 | GitHub | pendiente (repo de la cuenta `rferreroSerbatic`, privado) |
 | Mockups aprobados | `.superpowers/brainstorm/430-1795195954/content/*.html` — **no borrar** (QA visual de la Task 15); están gitignored |
