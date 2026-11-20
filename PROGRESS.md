@@ -7,7 +7,7 @@
 
 - **Fase:** 1 — **COMPLETA** (15/15 tasks + final review de rama + fix wave; 65/65 tests, build limpio)
 - **Tarea en curso:** ninguna
-- **Siguiente:** push a GitHub (usuario: crear repo + remote + tag v0.1.0) · QA visual en navegador (residuales R1–R6, lista abajo) · Fase 2 (backend FastAPI)
+- **Siguiente:** QA visual en navegador (residuales R1–R6, lista abajo) · Fase 2 (backend FastAPI)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -17,7 +17,7 @@
   - R6: salto de línea del titular de home según ancho.
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
-  - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
+  - ✅ **GitHub:** repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) creado; `main` + tag `v0.1.0` pushados (2026-11-21).
   - Python no instalado (solo se necesita en Fase 2).
 
 ## Cómo retomar (para una sesión nueva)
@@ -31,7 +31,7 @@
 
 ## Progreso del plan (Fase 1)
 
-- [x] Task 1: Scaffold + git + GitHub *(commit 550fd40, review limpia; push a GitHub pendiente de remote)*
+- [x] Task 1: Scaffold + git + GitHub *(commit 550fd40, review limpia; push hecho 2026-11-21)*
 - [x] Task 2: Primitivas UI (NeonButton, SeverityBadge, ProgressBar, Modal) *(commit 23326b5, review limpia)*
 - [x] Task 3: Tipos de dominio + datos OWASP Top 10 *(commit 1fb3f66, review limpia)*
 - [x] Task 4: Hallazgos mock (A10 con 0 a propósito) *(commits 0f5957e+5f0f3a7, review limpia tras 1 fix round)*
@@ -55,7 +55,7 @@
 | npm | 11.20.0 ✓ |
 | git | 2.56 ✓ (repo local inicializado, commit 0 hecho) |
 | Python | no instalado (Fase 2) |
-| GitHub | pendiente (repo de la cuenta `rferreroSerbatic`, privado) |
+| GitHub | ✅ `rferreroSerbatic/SerbaticSecurityInspector` (privado) — `main` + `v0.1.0` pushados (2026-11-21) |
 | Mockups aprobados | `.superpowers/brainstorm/430-1795195954/content/*.html` — **no borrar** (QA visual de la Task 15); están gitignored |
 
 ## Registro de decisiones
@@ -68,7 +68,8 @@
 - 2026-11-20 — Modal del alcance con botón **«Copiar texto»** (el PDF sigue siendo stub en Fase 1).
 - 2026-11-20 — Mock: **A10 (SSRF) sin hallazgos**, para ejercitar el estado vacío.
 - 2026-11-20 — Design doc aprobado; plan de 15 tasks escrito (en `docs/superpowers/plans/`).
-- 2026-11-20 — **Fase 1 completa**: 15/15 tasks + final review de rama completa + fix wave (`60ccef8`). 65/65 tests, build limpio. Pendiente de usuario: push a GitHub + tag v0.1.0 + QA visual en navegador (R1–R6).
+- 2026-11-20 — **Fase 1 completa**: 15/15 tasks + final review de rama completa + fix wave (`60ccef8`). 65/65 tests, build limpio.
+- 2026-11-21 — Push a GitHub: `main` + tag `v0.1.0` en `rferreroSerbatic/SerbaticSecurityInspector` (privado). Queda pendiente QA visual en navegador (R1–R6).
 
 ## Fuera de scope (fases futuras)
 
