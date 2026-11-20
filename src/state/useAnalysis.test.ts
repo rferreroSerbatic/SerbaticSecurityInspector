@@ -1,8 +1,10 @@
-import { expect, test, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { afterEach, expect, test, vi } from 'vitest'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { useAnalysis } from './useAnalysis'
 import type { AnalysisProgress, AnalysisService, Finding, Source } from '../types'
 import { OWASP_VULNS } from '../data/owasp'
+
+afterEach(cleanup)
 
 const IDS = OWASP_VULNS.map(v => v.id)
 
