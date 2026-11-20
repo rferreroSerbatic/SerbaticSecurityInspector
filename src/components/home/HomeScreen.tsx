@@ -3,14 +3,6 @@ import { NeonButton } from '../ui/NeonButton'
 export function HomeScreen({ onAnalyze }: { onAnalyze: () => void }) {
   return (
     <section className="relative flex min-h-[70vh] flex-col justify-center">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'radial-gradient(ellipse at 75% 15%, rgba(255,45,149,0.22), transparent 55%), radial-gradient(ellipse at 15% 85%, rgba(0,229,255,0.18), transparent 55%)',
-        }}
-      />
       <div className="relative max-w-2xl">
         <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-ink-dim">
           OWASP TOP 10 · AUDITORÍA AUTOMATIZADA

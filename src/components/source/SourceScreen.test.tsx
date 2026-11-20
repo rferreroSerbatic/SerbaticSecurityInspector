@@ -15,7 +15,8 @@ const openGitTab = () =>
 const gitInput = () => screen.getByPlaceholderText('https://github.com/org/repo')
 
 test('continuar está deshabilitado sin fuente', () => {
-  renderScreen()
+  const { container } = renderScreen()
+  expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
   expect(continueBtn()).toBeDisabled()
 })
 

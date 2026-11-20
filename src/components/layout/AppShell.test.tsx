@@ -15,6 +15,19 @@ test('renderiza la marca SERBATIC e INSPECTOR', () => {
   expect(screen.getByText('INSPECTOR')).toBeInTheDocument()
 })
 
+test('renderiza una única capa ambiental fija a toda la viewport', () => {
+  const { container } = render(
+    <AppShell step="home">
+      <p>contenido</p>
+    </AppShell>,
+  )
+  const glow = screen.getByTestId('ambient-glow')
+  expect(glow).toHaveClass('fixed', 'inset-0', 'pointer-events-none')
+  expect(container.querySelectorAll('[data-testid="ambient-glow"]')).toHaveLength(1)
+  expect(container.querySelector('header')).toHaveClass('relative', 'z-10')
+  expect(container.querySelector('main')).toHaveClass('relative', 'z-10')
+})
+
 test('StepIndicator marca completados con ✓ y el actual en magenta', () => {
   render(<StepIndicator step="vulns" />)
   expect(screen.getByText(/1 FUENTE/)).toHaveTextContent('✓')

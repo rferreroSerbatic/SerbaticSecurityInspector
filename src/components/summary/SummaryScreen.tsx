@@ -52,14 +52,6 @@ export function SummaryScreen({
 
   return (
     <section className="relative flex min-h-[70vh] flex-col justify-center">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'radial-gradient(ellipse at 85% 0%, rgba(255,45,149,0.10), transparent 50%), radial-gradient(ellipse at 15% 90%, rgba(0,229,255,0.08), transparent 50%)',
-        }}
-      />
       <div className="relative w-full max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-ink-dim">
           PASO 4 · INFORME

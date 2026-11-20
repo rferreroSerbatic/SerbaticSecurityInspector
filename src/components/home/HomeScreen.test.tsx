@@ -5,7 +5,8 @@ import { HomeScreen } from './HomeScreen'
 afterEach(cleanup)
 
 test('renderiza el titular y el CTA', () => {
-  render(<HomeScreen onAnalyze={() => {}} />)
+  const { container } = render(<HomeScreen onAnalyze={() => {}} />)
+  expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
   expect(
     screen.getByText(/Encuentra la brecha antes que el atacante/i),
   ).toBeInTheDocument()

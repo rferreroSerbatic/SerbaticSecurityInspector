@@ -63,7 +63,8 @@ test('renderiza cada agente con su estado y sus contadores', () => {
 })
 
 test('renderiza el progreso global 45%', () => {
-  render(<ProgressScreen analysis={base} />)
+  const { container } = render(<ProgressScreen analysis={base} />)
+  expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
 
   expect(screen.getByText('Análisis en curso')).toBeInTheDocument()
   expect(screen.getByText('⚠ El análisis puede tardar varios minutos')).toBeInTheDocument()

@@ -88,7 +88,8 @@ const renderScreen = (
   )
 
 test('renderiza las métricas y la barra de severidad con sus segmentos', () => {
-  renderScreen()
+  const { container } = renderScreen()
+  expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()
 
   expect(screen.getByText('Análisis completado')).toBeInTheDocument()
   expect(screen.getByText('4 agentes · 128 archivos · 3.412 líneas · 14 min')).toBeInTheDocument()
