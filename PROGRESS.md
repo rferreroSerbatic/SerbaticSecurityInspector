@@ -5,9 +5,10 @@
 
 ## Estado actual
 
-- **Fase:** 1 — **COMPLETA** (15/15 tasks + final review de rama + fix wave; 65/65 tests, build limpio)
+- **Fase:** 1 — **COMPLETA** (15/15 tasks, push + tag v0.1.0)
+- **Fase 1.1** (UX: fondo full-bleed, volver/migas de pan, carpeta real) — **plan listo, pendiente de ejecutar**
 - **Tarea en curso:** ninguna
-- **Siguiente:** QA visual en navegador (residuales R1–R6, lista abajo) · Fase 2 (backend FastAPI)
+- **Siguiente:** **Fase 1.1, Task 1** del plan `docs/superpowers/plans/2026-11-21-fase1-1-ux-fondo-navegacion-carpeta.md` (método de subagentes, como en Fase 1) · después: QA visual en navegador (R1–R6) · Fase 2 (backend FastAPI)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -24,7 +25,7 @@
 
 1. Leer `AGENTS.md` (guía operativa del proyecto).
 2. Leer la sección «Estado actual» de esta hoja.
-3. Localizar la **primera task sin `- [x]`** en la lista «Progreso del plan» de esta hoja (los checkboxes del plan son por paso, no por task).
+3. Localizar la **primera task sin `- [x]`** en las listas «Progreso del plan (Fase 1)» y «Progreso Fase 1.1» de esta hoja (los checkboxes de los planes son por paso, no por task).
 4. Ejecutarla con TDD (test → fail → implementar → pass) y terminar con commit + push.
 5. Marcar la task `- [x]` en el plan, actualizar «Estado actual» aquí y, si hubo decisiones nuevas, el registro de abajo.
 6. Si la sesión se agota a medio task: dejar la task con lo hecho anotado en «Tarea en curso» (qué falta).
@@ -46,6 +47,13 @@
 - [x] Task 13: `buildScopeText` (texto del alcance) *(commit 33aa870, review limpia tras 1 fix round: ruling de casing + enmienda del plan)*
 - [ ] Task 14: ScopeModal (editable, copiar, PDF-stub)
 - [x] Task 15: Cableado E2E + QA visual contra mockups *(commit ccba51e, review limpia; QA browser residual R1–R6 para el usuario)*
+
+## Progreso Fase 1.1 (plan `2026-11-21-fase1-1-ux-fondo-navegacion-carpeta.md`)
+
+- [ ] Task 1: Fondo ambiental full-bleed en AppShell
+- [ ] Task 2: Navegación hacia atrás (goVulns, migas de pan clicables, Volver en Progreso/Resumen)
+- [ ] Task 3: Selector de carpeta real (webkitdirectory) en SourceScreen
+- [ ] Task 4: E2E de «volver» + verificación final
 
 ## Entorno
 
@@ -70,6 +78,7 @@
 - 2026-11-20 — Design doc aprobado; plan de 15 tasks escrito (en `docs/superpowers/plans/`).
 - 2026-11-20 — **Fase 1 completa**: 15/15 tasks + final review de rama completa + fix wave (`60ccef8`). 65/65 tests, build limpio.
 - 2026-11-21 — Push a GitHub: `main` + tag `v0.1.0` en `rferreroSerbatic/SerbaticSecurityInspector` (privado). Queda pendiente QA visual en navegador (R1–R6).
+- 2026-11-21 — **Fase 1.1** (pedida por el usuario tras probar en navegador): fondo a ancho completo, volver entre fases + migas de pan, selector de carpeta real en el front (análisis sigue mock). Los 3 proyectos demo se conservan. **Pendiente de conversación:** proyectos demo reales (p. ej. un form sencillo con vulnerabilidades básicas que se pueda probar de verdad).
 
 ## Fuera de scope (fases futuras)
 
