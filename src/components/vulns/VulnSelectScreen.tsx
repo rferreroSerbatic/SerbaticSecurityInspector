@@ -16,8 +16,8 @@ export function VulnSelectScreen({
   onBack: () => void
 }) {
   const total = OWASP_VULNS.length
-  const count = selected.length
-  const allSelected = count === total
+  const count = OWASP_VULNS.filter(v => selected.includes(v.id)).length
+  const allSelected = OWASP_VULNS.every(v => selected.includes(v.id))
 
   return (
     <section className="relative flex min-h-[70vh] flex-col justify-center">

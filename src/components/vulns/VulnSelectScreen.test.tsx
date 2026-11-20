@@ -66,6 +66,14 @@ test('ejecutar está deshabilitado con 0 seleccionadas', () => {
   expect(screen.getByText('0 DE 10 SELECCIONADAS')).toBeInTheDocument()
 })
 
+test('contabiliza solo ids canónicos: 9 canónicas + 1 foránea → «9 DE 10» y SELECCIONAR TODAS', () => {
+  const stray = [...OWASP_VULNS.slice(0, 9).map(v => v.id), 'X99']
+  renderScreen(stray)
+  expect(screen.getByText('9 DE 10 SELECCIONADAS')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'SELECCIONAR TODAS' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'DESELECCIONAR TODAS' })).not.toBeInTheDocument()
+})
+
 test('ejecutar llama a onRun con ≥1 seleccionada', () => {
   const onRun = vi.fn()
   renderScreen(['A02'], { onRun })
