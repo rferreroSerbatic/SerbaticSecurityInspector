@@ -45,6 +45,8 @@ test('Modal no pinta si está cerrado; abierto muestra contenido y cierra con Es
     </Modal>,
   )
   expect(screen.getByText('cuerpo')).toBeInTheDocument()
+  // El diálogo tiene nombre accesible vía el <h2 id="modal-title">.
+  expect(screen.getByRole('dialog')).toHaveAttribute('aria-labelledby', 'modal-title')
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(onClose).toHaveBeenCalled()
 })

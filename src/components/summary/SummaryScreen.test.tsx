@@ -187,6 +187,16 @@ test('marcar hallazgos actualiza el contador del pie y habilita generar', () => 
   expect(screen.getByRole('button', { name: /generar alcance/i })).toBeEnabled()
 })
 
+test('el label del checkbox de hallazgo lleva anillo de foco visible para teclado', () => {
+  renderScreen()
+  const label = screen
+    .getByRole('checkbox', { name: `A01-1 ${findings[0].title}` })
+    .closest('label')
+  expect(label).not.toBeNull()
+  // jsdom no implementa :focus-visible; se afirma la clase estática en el wrapper.
+  expect(label).toHaveClass('has-[:focus-visible]:ring-2', 'has-[:focus-visible]:ring-neon-cyan')
+})
+
 test('con 0 hallazgos muestra el estado vacío y generar está deshabilitado', () => {
   const empty: AnalysisProgress = { ...base, findings: [] }
   renderScreen(empty)

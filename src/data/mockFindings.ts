@@ -18,7 +18,7 @@ export const MOCK_FINDINGS: Record<string, Finding[]> = {
   res.json(user.rows[0]) // sin verificar que req.user.id === user.id
 })`,
       exploit: 'Un atacante autenticado solo tiene que cambiar el parámetro (GET /api/users/1024) para leer el perfil, email y teléfono de cualquier otro usuario.',
-      consequences: 'Exposición masiva de datos personales de clientes, incumplimiento de RGPD y phising dirigido a partir de esos datos.',
+      consequences: 'Exposición masiva de datos personales de clientes, incumplimiento de RGPD y phishing dirigido a partir de esos datos.',
       solution: 'Comprobar siempre que el usuario autenticado es el propietario del recurso y devolver 403/404 en caso contrario.',
     },
     {
@@ -369,7 +369,7 @@ if (used < 100) {              // comprobación y escritura no atómicas
       id: 'A06-3',
       vulnId: 'A06',
       severity: 'medium',
-      title: 'Express 4.17.1, cinco años sin parches de seguridad',
+      title: 'Express 4.17.1, siete años sin parches de seguridad',
       file: 'package.json',
       line: 18,
       snippet: `"express": "4.17.1",   // sin parches publicados desde 2019 (p. ej. CVE-2024-29041)`,

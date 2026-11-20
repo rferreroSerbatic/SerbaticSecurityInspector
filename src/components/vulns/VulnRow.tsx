@@ -11,7 +11,7 @@ export function VulnRow({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-3 border-b border-l-2 border-b-ink-dim/10 px-4 py-2.5 transition-all duration-200 ${
+      className={`flex cursor-pointer items-center gap-3 border-b border-l-2 border-b-ink-dim/10 px-4 py-2.5 transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-neon-cyan ${
         selected
           ? 'border-l-neon-magenta bg-neon-magenta/5'
           : 'border-l-transparent opacity-60 hover:opacity-100'

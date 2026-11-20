@@ -63,6 +63,12 @@ test('emite estado inicial running con los agentes en orden A01..A10', () => {
   expect(first.logLines[0].message).toMatch(/^iniciando análisis de 10 vulnerabilidades/)
 })
 
+test('con 1 vuln, la línea de arranque usa el singular «vulnerabilidad»', () => {
+  const { updates } = startRun(['A01'])
+  expect(updates.length).toBeGreaterThanOrEqual(1)
+  expect(updates[0].logLines[0].message).toMatch(/^iniciando análisis de 1 vulnerabilidad…$/)
+})
+
 test('ejecuta los agentes estrictamente uno a uno (sin solaparse)', async () => {
   const { updates, until } = startRun(IDS)
   await until(p => p.status === 'done')

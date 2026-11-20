@@ -26,7 +26,7 @@ export function FindingCard({
   return (
     <article data-testid="finding-card" className={`rounded-md border ${CARD_STYLES[finding.severity]}`}>
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-        <label className="flex shrink-0 cursor-pointer items-center">
+        <label className="flex shrink-0 cursor-pointer items-center has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-neon-cyan">
           <input
             type="checkbox"
             aria-label={`${finding.id} ${finding.title}`}

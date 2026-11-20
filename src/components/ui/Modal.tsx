@@ -28,10 +28,11 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="modal-title"
         className="w-full max-w-3xl rounded-lg border border-neon-cyan/60 bg-panel shadow-[0_0_30px_rgba(0,229,255,0.25)]"
       >
         <header className="flex items-center justify-between gap-4 border-b border-neon-cyan/20 px-6 py-4">
-          <h2 className="font-mono text-lg font-bold tracking-wider text-neon-cyan">
+          <h2 id="modal-title" className="font-mono text-lg font-bold tracking-wider text-neon-cyan">
             {title}
           </h2>
           <button

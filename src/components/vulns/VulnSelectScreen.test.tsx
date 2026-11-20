@@ -38,6 +38,16 @@ test('renderiza las 10 vulns con código, nombre y descripción', () => {
   expect(screen.getByRole('button', { name: /volver/i })).toBeInTheDocument()
 })
 
+test('el label de la fila lleva anillo de foco visible para navegación por teclado', () => {
+  renderScreen(['A01'])
+  const label = screen
+    .getByRole('checkbox', { name: 'A01 Fallos de control de acceso' })
+    .closest('label')
+  expect(label).not.toBeNull()
+  // jsdom no implementa :focus-visible; se afirma la clase estática en el wrapper.
+  expect(label).toHaveClass('has-[:focus-visible]:ring-2', 'has-[:focus-visible]:ring-neon-cyan')
+})
+
 test('toggle de una fila llama a onToggle con su id', () => {
   const onToggle = vi.fn()
   renderScreen(['A03'], { onToggle })

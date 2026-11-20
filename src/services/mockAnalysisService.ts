@@ -80,7 +80,7 @@ export function createMockAnalysisService(opts: MockOptions = {}): AnalysisServi
         })
       }
 
-      log('global', `iniciando análisis de ${chosen.length} vulnerabilidades…`)
+      log('global', `iniciando análisis de ${chosen.length} vulnerabilidad${chosen.length === 1 ? '' : 'es'}…`)
       emit() // estado inicial «running», de inmediato
 
       // Duración real por agente: agentMs con jitter ±30%.
