@@ -6,8 +6,8 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** **Task 14** (ScopeModal, editable) — ejecutada por subagente
-- **Siguiente tarea:** Task 14 → Task 15 (cableado E2E + QA visual)
+- **Tarea en curso:** **Task 15** (cableado E2E + QA visual) — ejecutada por subagente
+- **Siguiente tarea:** Task 15 → fin de Fase 1 (revisión de rama completa + push a GitHub)
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
