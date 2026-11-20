@@ -6,8 +6,8 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** **Task 12** (resumen de hallazgos) — ejecutada por subagente
-- **Siguiente tarea:** Task 12 → Task 13 (`buildScopeText`)
+- **Tarea en curso:** **Task 13** (`buildScopeText`, texto del alcance) — ejecutada por subagente
+- **Siguiente tarea:** Task 13 → Task 14 (ScopeModal)
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
@@ -35,7 +35,7 @@
 - [x] Task 9: SourceScreen (carpeta mock + URL git) *(commit 4634703, review limpia)*
 - [x] Task 10: VulnSelectScreen (lista vertical) *(commits 49b69bc+91b3c97, review limpia tras 1 fix round)*
 - [x] Task 11: ProgressScreen (progreso en vivo) *(commits 7f6ba72+a469c9a, review limpia tras 1 fix round)*
-- [ ] Task 12: SummaryScreen (resumen de hallazgos)
+- [x] Task 12: SummaryScreen (resumen de hallazgos) *(commit b1ce397, review limpia)*
 - [ ] Task 13: `buildScopeText` (texto del alcance)
 - [ ] Task 14: ScopeModal (editable, copiar, PDF-stub)
 - [ ] Task 15: Cableado E2E + QA visual contra mockups
