@@ -5,9 +5,16 @@
 
 ## Estado actual
 
-- **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** ninguna — **15/15 tasks completadas**; en final review de rama completa (SDD)
-- **Siguiente tarea:** final review → fix wave si procede → QA visual en navegador (residuales R1–R6) → push a GitHub + tag v0.1.0
+- **Fase:** 1 — **COMPLETA** (15/15 tasks + final review de rama + fix wave; 65/65 tests, build limpio)
+- **Tarea en curso:** ninguna
+- **Siguiente:** push a GitHub (usuario: crear repo + remote + tag v0.1.0) · QA visual en navegador (residuales R1–R6, lista abajo) · Fase 2 (backend FastAPI)
+- **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
+  - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
+  - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
+  - R3: glow y cabecera del modal de alcance (borde cian, sub bajo el título).
+  - R4: opacidades sutiles (filas no seleccionadas, estados pending).
+  - R5: SourceScreen no tiene mockup — comprobar que sigue la plantilla de diseño.
+  - R6: salto de línea del titular de home según ancho.
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
@@ -17,7 +24,7 @@
 
 1. Leer `AGENTS.md` (guía operativa del proyecto).
 2. Leer la sección «Estado actual» de esta hoja.
-3. Abrir `docs/superpowers/plans/2026-11-20-serbatic-frontend-plan.md` → localizar la **primera task sin `- [x]`**.
+3. Localizar la **primera task sin `- [x]`** en la lista «Progreso del plan» de esta hoja (los checkboxes del plan son por paso, no por task).
 4. Ejecutarla con TDD (test → fail → implementar → pass) y terminar con commit + push.
 5. Marcar la task `- [x]` en el plan, actualizar «Estado actual» aquí y, si hubo decisiones nuevas, el registro de abajo.
 6. Si la sesión se agota a medio task: dejar la task con lo hecho anotado en «Tarea en curso» (qué falta).
@@ -61,6 +68,7 @@
 - 2026-11-20 — Modal del alcance con botón **«Copiar texto»** (el PDF sigue siendo stub en Fase 1).
 - 2026-11-20 — Mock: **A10 (SSRF) sin hallazgos**, para ejercitar el estado vacío.
 - 2026-11-20 — Design doc aprobado; plan de 15 tasks escrito (en `docs/superpowers/plans/`).
+- 2026-11-20 — **Fase 1 completa**: 15/15 tasks + final review de rama completa + fix wave (`60ccef8`). 65/65 tests, build limpio. Pendiente de usuario: push a GitHub + tag v0.1.0 + QA visual en navegador (R1–R6).
 
 ## Fuera de scope (fases futuras)
 

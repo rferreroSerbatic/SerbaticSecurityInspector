@@ -5,13 +5,13 @@ Guía operativa para cualquier agente/sesión que trabaje en este repositorio.
 ## Dónde estamos (lee esto primero, en orden)
 
 1. **`PROGRESS.md`** — estado actual, siguiente task, bloqueos, registro de decisiones.
-2. **`docs/superpowers/plans/2026-11-20-serbatic-frontend-plan.md`** — el plan: 15 tasks con tests, interfaces exactas y commits. La primera task sin `- [x]` es la siguiente.
+2. **`docs/superpowers/plans/2026-11-20-serbatic-frontend-plan.md`** — el plan: 15 tasks con tests, interfaces exactas y commits (sus checkboxes son por paso; la fuente de verdad de tareas es la lista «Progreso del plan» de PROGRESS.md).
 3. **`docs/superpowers/specs/2026-11-20-serbatic-security-inspector-front-design.md`** — el porqué: intención, pantallas, decisiones de diseño.
 
 ## Reglas de trabajo
 
 - **Una task a la vez, en orden**, TDD estricto: escribir el test → verlo fallar → implementar mínimo → verlo pasar → `npm run build` limpio → commit + push.
-- **Al terminar una task:** marcarla `- [x]` en el plan, actualizar `PROGRESS.md` (estado; decisiones nuevas al registro).
+- **Al terminar una task:** marcarla `- [x]` en la lista «Progreso del plan» de `PROGRESS.md` y actualizar su «Estado actual» (decisiones nuevas al registro).
 - **A media task al agotar contexto:** anotar en `PROGRESS.md` «Tarea en curso» qué falta exactamente.
 - **Commits:** convencionales (`feat:`, `test:`, `chore:`, `docs:`), uno por task, con push.
 - **Ritmo sugerido:** 2–4 tasks por sesión; no intentar la fase completa en una.
