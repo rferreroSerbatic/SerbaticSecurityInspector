@@ -6,8 +6,8 @@
 ## Estado actual
 
 - **Fase:** 1 — Frontend con análisis mock (15 tasks en el plan)
-- **Tarea en curso:** **Task 9** (SourceScreen) — ejecutada por subagente
-- **Siguiente tarea:** Task 9 → Task 10 (selección de vulnerabilidades)
+- **Tarea en curso:** **Task 10** (selección de vulnerabilidades) — ejecutada por subagente
+- **Siguiente tarea:** Task 10 → Task 11 (pantalla de progreso)
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ⚠️ **GitHub:** sin remote y sin CLI `gh`. Crear el repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) en la web y `git remote add origin …` + `git push` (o `winget install GitHub.cli`). Los commits van acumulando localmente.
@@ -32,7 +32,7 @@
 - [x] Task 6: `mockAnalysisService` (agentes secuenciales, log, cancel) *(commit 8a72961, review limpia)*
 - [x] Task 7: AppShell + StepIndicator *(commit 5f1ff7f, review limpia)*
 - [x] Task 8: HomeScreen *(commit 5339a1e, review limpia)*
-- [ ] Task 9: SourceScreen (carpeta mock + URL git)
+- [x] Task 9: SourceScreen (carpeta mock + URL git) *(commit 4634703, review limpia)*
 - [ ] Task 10: VulnSelectScreen (lista vertical)
 - [ ] Task 11: ProgressScreen (progreso en vivo)
 - [ ] Task 12: SummaryScreen (resumen de hallazgos)
