@@ -10,3 +10,4 @@ backend/.venv/
 backend/.env
 samples/dvwa/
 samples/miniapp/node_modules/
+workspace/
