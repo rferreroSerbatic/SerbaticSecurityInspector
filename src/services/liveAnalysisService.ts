@@ -22,8 +22,18 @@ interface SseEvent {
   message?: string
   findingsCount?: number
   criticalCount?: number
+  model?: string
+  tokens?: number
+  tps?: number
   findings?: Finding[]
-  meta?: { files: number; lines: number; durationMin: number }
+  meta?: {
+    files: number
+    lines: number
+    durationMin: number
+    model?: string
+    totalTokens?: number
+    avgTps?: number
+  }
 }
 
 // Counter global de ids de línea de log (únicos entre runs del mismo servicio).
@@ -110,7 +120,11 @@ export function createLiveAnalysisService(opts: LiveOptions = {}): AnalysisServi
         const ev = JSON.parse(e.data) as SseEvent
         switch (ev.type) {
           case 'run:start':
-            // Sin cambio extra: el estado ya está «running».
+            // El estado ya está «running»; el modelo (si el backend lo manda) se fija ya.
+            if (ev.model) {
+              state.model = ev.model
+              emit()
+            }
             break
           case 'profile:done':
             // Se ignora en el front (el log del perfil llega como evento 'log').
@@ -146,6 +160,7 @@ export function createLiveAnalysisService(opts: LiveOptions = {}): AnalysisServi
               a.findingsCount = ev.findingsCount ?? 0
               a.criticalCount = ev.criticalCount ?? 0
             }
+            if (typeof ev.tps === 'number') state.tps = ev.tps
             emit()
             break
           }
@@ -155,6 +170,8 @@ export function createLiveAnalysisService(opts: LiveOptions = {}): AnalysisServi
             state.globalProgress = 100
             state.findings = ev.findings ?? []
             state.meta = ev.meta
+            if (ev.meta?.model) state.model = ev.meta.model
+            if (typeof ev.meta?.avgTps === 'number') state.tps = ev.meta.avgTps
             stopTick()
             es?.close()
             emit()

@@ -26,6 +26,11 @@ export function ProgressScreen({
           <span className="shrink-0 rounded-full border border-sev-medium/45 bg-sev-medium/10 px-3 py-1 font-mono text-[11px] tracking-wide text-sev-medium">
             ⚠ El análisis puede tardar varios minutos
           </span>
+          {analysis.model && (
+            <span className="shrink-0 rounded-full border border-neon-cyan/45 bg-neon-cyan/10 px-3 py-1 font-mono text-[11px] tracking-wide text-neon-cyan">
+              ⚡ {`${analysis.model}${typeof analysis.tps === 'number' && analysis.tps > 0 ? ` · ${analysis.tps} tk/s` : ''}`}
+            </span>
+          )}
         </div>
 
         {analysis.status === 'error' && (

@@ -39,6 +39,7 @@ export function ScopeModal({
 }) {
   const [text, setText] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // El texto se siembra una vez por apertura: cuando `open` pasa a true se
@@ -63,6 +64,29 @@ export function ScopeModal({
     setToast(message)
     if (toastTimer.current !== null) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), TOAST_MS)
+  }
+
+  // PDF real: el backend (reportlab) genera el documento y el front lo descarga.
+  const generatePdf = () => {
+    setPdfBusy(true)
+    fetch('/api/reports/scope-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error('Error ' + res.status)
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'alcance.pdf'
+        a.click()
+        URL.revokeObjectURL(url)
+        showToast('PDF descargado')
+      })
+      .catch(() => showToast('No se pudo generar el PDF (¿backend caído?)'))
+      .finally(() => setPdfBusy(false))
   }
 
   const copyText = () => {
@@ -125,9 +149,8 @@ export function ScopeModal({
             <NeonButton variant="outline" onClick={copyText}>
               COPIAR TEXTO
             </NeonButton>
-            {/* Fase 1: stub. Solo el toast de confirmación, sin descargar nada. */}
-            <NeonButton onClick={() => showToast('PDF generado (demo)')} disabled={words === 0}>
-              GENERAR PDF ▸
+            <NeonButton onClick={generatePdf} disabled={words === 0 || pdfBusy}>
+              {pdfBusy ? 'GENERANDO…' : 'GENERAR PDF ▸'}
             </NeonButton>
           </div>
         </div>

@@ -67,6 +67,8 @@ export function SummaryScreen({
               {agents.length} {agents.length === 1 ? 'agente' : 'agentes'} ·{' '}
               {esFormat(meta.files)} archivos · {esFormat(meta.lines)} líneas ·{' '}
               {meta.durationMin} min
+              {meta.model &&
+                ` · ${meta.model}${typeof meta.avgTps === 'number' && meta.avgTps > 0 ? ` · ${meta.avgTps} tk/s` : ''}`}
             </p>
           )}
         </div>

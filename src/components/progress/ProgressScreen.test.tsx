@@ -142,6 +142,18 @@ test('«← Volver» llama a onBack', () => {
   expect(onBack).toHaveBeenCalled()
 })
 
+// --- Fase 2a (QA del usuario): modelo LLM + velocidad visibles en vivo ---
+test('muestra el modelo y tk/s cuando el backend los manda', () => {
+  const live: AnalysisProgress = { ...base, model: 'qwen3.8-fp8', tps: 41.2 }
+  render(<ProgressScreen analysis={live} onBack={() => {}} />)
+  expect(screen.getByText('⚡ qwen3.8-fp8 · 41.2 tk/s')).toBeInTheDocument()
+})
+
+test('sin modelo (modo mock) no muestra la línea de modelo', () => {
+  render(<ProgressScreen analysis={base} onBack={() => {}} />)
+  expect(screen.queryByText(/qwen3\.8-fp8/)).not.toBeInTheDocument()
+})
+
 // --- Task 7: banner de error del análisis ---
 test('banner de error cuando el análisis falla', () => {
   const analysis: AnalysisProgress = { status: 'error', error: 'Error 500 del LLM', globalProgress: 10, agents: [], logLines: [], findings: [] }

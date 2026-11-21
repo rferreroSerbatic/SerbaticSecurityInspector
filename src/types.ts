@@ -46,7 +46,18 @@ export interface AnalysisProgress {
   agents: AgentProgress[]
   logLines: LogLine[]
   findings: Finding[]
-  meta?: { files: number; lines: number; durationMin: number }
+  /** Solo modo live: el modelo LLM que está ejecutando el análisis. */
+  model?: string
+  /** Solo modo live: velocidad de generación (tokens/s) del último agente o media final. */
+  tps?: number
+  meta?: {
+    files: number
+    lines: number
+    durationMin: number
+    model?: string
+    totalTokens?: number
+    avgTps?: number
+  }
 }
 
 export interface ProjectInfo {

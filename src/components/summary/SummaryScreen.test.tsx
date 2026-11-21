@@ -107,6 +107,16 @@ test('renderiza las métricas y la barra de severidad con sus segmentos', () => 
   expect(screen.getByText('1 BAJO')).toBeInTheDocument()
 })
 
+test('la meta muestra modelo y velocidad media cuando el backend los manda', () => {
+  const live: AnalysisProgress = {
+    ...base,
+    meta: { files: 128, lines: 3412, durationMin: 14, model: 'qwen3.8-fp8', totalTokens: 1234, avgTps: 38.5 },
+  }
+  renderScreen(live)
+  expect(screen.getByText(/qwen3\.8-fp8/)).toBeInTheDocument()
+  expect(screen.getByText(/38\.5 tk\/s/)).toBeInTheDocument()
+})
+
 test('los hallazgos renderizan con badge, tag OWASP y file:line', () => {
   renderScreen()
 

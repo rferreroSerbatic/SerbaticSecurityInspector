@@ -61,20 +61,36 @@ test('happy path: run:start → run:done', async () => {
   await vi.waitFor(() => expect(FakeEventSource.instances.length).toBe(1))
   const es = FakeEventSource.instances[0]
   expect(es.url).toBe('/api/runs/r1/events')
-  es.emit({ type: 'run:start', t: 0, vulnIds: ['A01'] })
+  es.emit({ type: 'run:start', t: 0, vulnIds: ['A01'], model: 'qwen3.8-fp8' })
   es.emit({ type: 'profile:done', t: 1, profile: {} })
   es.emit({ type: 'agent:start', t: 1, vulnId: 'A01' })
   es.emit({ type: 'log', t: 2, vulnId: 'A01', severity: 'high', message: '[ALTO] routes/admin.js:5 — Admin sin auth' })
-  es.emit({ type: 'agent:done', t: 3, vulnId: 'A01', findingsCount: 1, criticalCount: 0 })
-  es.emit({ type: 'run:done', t: 4, findings: [A01], meta: { files: 12, lines: 340, durationMin: 1 } })
+  es.emit({ type: 'agent:done', t: 3, vulnId: 'A01', findingsCount: 1, criticalCount: 0, tokens: 42, tps: 38.5 })
+  es.emit({
+    type: 'run:done',
+    t: 4,
+    findings: [A01],
+    meta: { files: 12, lines: 340, durationMin: 1, model: 'qwen3.8-fp8', totalTokens: 42, avgTps: 41.2 },
+  })
   const last = seen[seen.length - 1]
   expect(last.status).toBe('done')
   expect(last.globalProgress).toBe(100)
   expect(last.findings).toEqual([A01])
-  expect(last.meta).toEqual({ files: 12, lines: 340, durationMin: 1 })
+  expect(last.meta).toEqual({
+    files: 12,
+    lines: 340,
+    durationMin: 1,
+    model: 'qwen3.8-fp8',
+    totalTokens: 42,
+    avgTps: 41.2,
+  })
   expect(last.agents[0]).toMatchObject({ vulnId: 'A01', status: 'done', progress: 100, findingsCount: 1 })
   expect(last.logLines[0].message).toContain('ALTO')
   expect(es.closed).toBe(true)
+  // Modelo y velocidad: el modelo se fija en run:start; la tps del último
+  // agent:done (38.5) se sustituye por la media de run:done (41.2).
+  expect(last.model).toBe('qwen3.8-fp8')
+  expect(last.tps).toBe(41.2)
 })
 
 test('409 → estado error con mensaje', async () => {

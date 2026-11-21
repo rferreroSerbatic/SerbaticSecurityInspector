@@ -129,15 +129,39 @@ test('COPIAR llama al clipboard y muestra toast; sin clipboard muestra el fallba
   expect(screen.getByText(fallback)).toBeInTheDocument()
 })
 
-test('GENERAR PDF muestra el toast demo y no cierra el modal', () => {
+test('GENERAR PDF pide el PDF al backend y lo descarga', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response('%PDF-1.4 fake', { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  URL.createObjectURL = vi.fn(() => 'blob:mock')
+  URL.revokeObjectURL = vi.fn()
   const onClose = vi.fn()
   renderModal(onClose)
 
   fireEvent.click(screen.getByRole('button', { name: /generar pdf/i }))
+  await act(async () => {})
 
-  expect(screen.getByText('PDF generado (demo)')).toBeInTheDocument()
+  expect(fetchMock).toHaveBeenCalledOnce()
+  const [url, init] = fetchMock.mock.calls[0]
+  expect(url).toBe('/api/reports/scope-pdf')
+  const body = JSON.parse(init.body)
+  expect(body.text).toBe(buildScopeText(findings, OWASP_VULNS, PROJECT, DATE_ISO))
+  expect(screen.getByText('PDF descargado')).toBeInTheDocument()
   expect(onClose).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog')).toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
+test('GENERAR PDF con el backend caído muestra el error sin lanzar', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('down')))
+  renderModal()
+
+  fireEvent.click(screen.getByRole('button', { name: /generar pdf/i }))
+  await act(async () => {})
+
+  expect(screen.getByText('No se pudo generar el PDF (¿backend caído?)')).toBeInTheDocument()
+  vi.unstubAllGlobals()
 })
 
 test('CANCELAR cierra el modal', () => {
