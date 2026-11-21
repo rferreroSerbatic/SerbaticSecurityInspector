@@ -4,8 +4,10 @@ const audit = require('./middleware/audit');
 
 const app = express();
 
+app.use(express.json()); // parsea los cuerpos JSON de la demo (sin esto, req.body está vacío)
 cors(app);
 audit(app);
+app.use(require('./routes/demo'));
 
 app.use(require('./routes/admin'));
 app.use(require('./routes/orders'));
