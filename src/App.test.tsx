@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import App from './App'
 import { createMockAnalysisService } from './services/mockAnalysisService'
+import type { AnalysisService } from './types'
 
 afterEach(cleanup)
 
@@ -36,4 +37,26 @@ test('desmontar durante el análisis no deja actualizaciones pendientes', async 
   unmount()
   expect(consoleError).not.toHaveBeenCalled()
   consoleError.mockRestore()
+})
+
+test('volver desde progreso lleva a vulnerabilidades y cancela el análisis', async () => {
+  const inner = createMockAnalysisService({ agentMs: 400, tickMs: 20 })
+  const onCancel = vi.fn()
+  const service: AnalysisService = {
+    run: (opts, onUpdate) => {
+      const cancel = inner.run(opts, onUpdate)
+      return () => { onCancel(); cancel() }
+    },
+  }
+  render(<App service={service} />)
+  fireEvent.click(screen.getByRole('button', { name: /analizar aplicación/i }))
+  fireEvent.click(screen.getByRole('tab', { name: /repositorio git/i }))
+  fireEvent.input(screen.getByPlaceholderText(/github/i), { target: { value: 'https://github.com/org/repo' } })
+  fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+  fireEvent.click(screen.getByRole('button', { name: /ejecutar análisis/i }))
+  expect(await screen.findByText(/análisis en curso/i)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /← volver/i }))
+  expect(await screen.findByText(/elige qué vulnerabilidades auditar/i)).toBeInTheDocument()
+  expect(screen.getByRole('checkbox', { name: /inyección/i })).toBeInTheDocument()
+  expect(onCancel).toHaveBeenCalled()
 })
