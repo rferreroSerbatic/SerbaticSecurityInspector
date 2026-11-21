@@ -6,9 +6,9 @@
 ## Estado actual
 
 - **Fase:** 1 — **COMPLETA** (15/15 tasks, push + tag v0.1.0)
-- **Fase 1.1** (UX: fondo full-bleed, volver/migas de pan, carpeta real) — **plan listo, pendiente de ejecutar**
+- **Fase 1.1** (UX: fondo full-bleed, volver/migas de pan, carpeta real) — **COMPLETA** (4/4 tasks, commits `c82c8c9…36f1f6f` en `main`; review por task + final review de rama completa limpias; 77/77 tests, build limpio)
 - **Tarea en curso:** ninguna
-- **Siguiente:** **Fase 1.1, Task 1** del plan `docs/superpowers/plans/2026-11-21-fase1-1-ux-fondo-navegacion-carpeta.md` (método de subagentes, como en Fase 1) · después: QA visual en navegador (R1–R6) · Fase 2 (backend FastAPI)
+- **Siguiente:** QA visual en navegador (R1–R6 + nuevos R7–R8) · Fase 2 (backend FastAPI)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -16,6 +16,8 @@
   - R4: opacidades sutiles (filas no seleccionadas, estados pending).
   - R5: SourceScreen no tiene mockup — comprobar que sigue la plantilla de diseño.
   - R6: salto de línea del titular de home según ancho.
+  - R7 (nuevo 1.1): fondo ambiental full-bleed — el glow cian/magenta cubre toda la viewport (no el «recuadro»); el resumen se ve algo más intenso que antes (alfas 0.22/0.18 vs 0.10/0.08 anteriores, prescritos por el plan).
+  - R8 (nuevo 1.1): carpeta real — en «Carpeta local», 📂 SELECCIONAR CARPETA abre el picker de carpetas (Chrome/Edge); confirmar nombre + nº de archivos, CONTINUAR habilitado, y que deselecciona el proyecto demo. Nota: elegir la MISMA carpeta de nuevo no dispara el evento (estándar de los navegadores).
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ✅ **GitHub:** repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) creado; `main` + tag `v0.1.0` pushados (2026-11-21).
@@ -45,15 +47,16 @@
 - [x] Task 11: ProgressScreen (progreso en vivo) *(commits 7f6ba72+a469c9a, review limpia tras 1 fix round)*
 - [x] Task 12: SummaryScreen (resumen de hallazgos) *(commit b1ce397, review limpia)*
 - [x] Task 13: `buildScopeText` (texto del alcance) *(commit 33aa870, review limpia tras 1 fix round: ruling de casing + enmienda del plan)*
-- [ ] Task 14: ScopeModal (editable, copiar, PDF-stub)
+- [x] Task 14: ScopeModal (editable, copiar, PDF-stub) *(commit bd20dab, review limpia — el checkbox quedó sin marcar por error de bookkeeping; corregido 2026-11-21)*
 - [x] Task 15: Cableado E2E + QA visual contra mockups *(commit ccba51e, review limpia; QA browser residual R1–R6 para el usuario)*
 
 ## Progreso Fase 1.1 (plan `2026-11-21-fase1-1-ux-fondo-navegacion-carpeta.md`)
 
-- [ ] Task 1: Fondo ambiental full-bleed en AppShell
-- [ ] Task 2: Navegación hacia atrás (goVulns, migas de pan clicables, Volver en Progreso/Resumen)
-- [ ] Task 3: Selector de carpeta real (webkitdirectory) en SourceScreen
-- [ ] Task 4: E2E de «volver» + verificación final
+- [x] Task 1: Fondo ambiental full-bleed en AppShell *(commits c82c8c9+ed79be3 — incluye glow de VulnSelectScreen, ruling; review limpia)*
+- [x] Task 2: Navegación hacia atrás (goVulns, migas de pan clicables, Volver en Progreso/Resumen) *(commits 64814dc+59749de — fix round: afterEach(cleanup); review limpia)*
+- [x] Task 3: Selector de carpeta real (webkitdirectory) en SourceScreen *(commits 9f888ee+33398b3 — fix round: webkitdirectory="" sin warning de React; review limpia)*
+- [x] Task 4: E2E de «volver» + verificación final *(commit 36f1f6f; review limpia)*
+- **Final review de rama (79974a2..36f1f6f): limpia** — 5 Review Focus PASS, sin Critical/Important, 5 minors diferidos (ver registro de decisiones).
 
 ## Entorno
 
@@ -79,6 +82,8 @@
 - 2026-11-20 — **Fase 1 completa**: 15/15 tasks + final review de rama completa + fix wave (`60ccef8`). 65/65 tests, build limpio.
 - 2026-11-21 — Push a GitHub: `main` + tag `v0.1.0` en `rferreroSerbatic/SerbaticSecurityInspector` (privado). Queda pendiente QA visual en navegador (R1–R6).
 - 2026-11-21 — **Fase 1.1** (pedida por el usuario tras probar en navegador): fondo a ancho completo, volver entre fases + migas de pan, selector de carpeta real en el front (análisis sigue mock). Los 3 proyectos demo se conservan. **Pendiente de conversación:** proyectos demo reales (p. ej. un form sencillo con vulnerabilidades básicas que se pueda probar de verdad).
+- 2026-11-21 — **Fase 1.1 completada** (4/4 tasks + reviews por task + final review de rama limpia; 77/77 tests, build limpio). Rulings que desviaron del texto literal del plan (todos en el ledger SDD, verificado por el final reviewer): (1) el glow de `VulnSelectScreen` también se eliminó (la lista de archivos del brief lo omitía, pero su texto normativo exige «ninguna pantalla renderiza radial-gradient»); (2) `webkitdirectory=""` + ampliación `declare module 'react'` en vez del `declare global` del brief (incompilable con TS 5.6: lib.dom ya declara `webkitdirectory: boolean`; y el atributo sin valor generaba warning de React 18, prohibido por el propio criterio «output sin warnings» del plan); (3) la prioridad de la carpeta real sobre los demos es incondicional (el brief lo prescribe) → si el usuario elige carpeta y luego un radio demo, CONTINUAR sigue mandando la carpeta (la línea de confirmación lo hace visible) — **diferido a Fase 2** como UX a resolver junto con el análisis real; (4) duplicación del par cancel en `useAnalysis` (ahora 5×) — diferido a Fase 2 (helper `cancelCurrent()`); (5) la ampliación de tipos de `webkitdirectory` vive en `SourceScreen.tsx` — mover a tipos compartidos cuando aparezca un segundo consumidor; (6) doc-level: la spec dice «Seleccionar carpeta…» y el plan/la app usan «📂 SELECCIONAR CARPETA» (el plan manda; alinear la spec en la próxima edición).
+- 2026-11-21 — Sesión de ejecución: por instrucción del usuario, todos los subagentes corrieron con `aitana/qwen3.8-fp8` (Qwen3.8 Aitana LLM) a partir de media Fase 1.1 (la implementación de la Task 2 ya estaba hecha con otro modelo y se mantuvo).
 
 ## Fuera de scope (fases futuras)
 
