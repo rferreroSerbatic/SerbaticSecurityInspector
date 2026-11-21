@@ -6,9 +6,9 @@
 ## Estado actual
 
 - **Fase:** 1 + 1.1 — **COMPLETA** (15/15 + 4/4, push + tag v0.1.0; 77/77 tests, build limpio)
-- **Fase 2a** (motor de análisis real: backend FastAPI + 11 agentes LLM + SSE + modo live en el front) — **EN MARCHA** (diseño + plan aprobados 2026-11-21; 0/8 tasks)
+- **Fase 2a** (motor de análisis real: backend FastAPI + 11 agentes LLM + SSE + modo live en el front) — **EN MARCHA** (4/8 tasks; reviews por task limpias)
 - **Tarea en curso:** ninguna
-- **Siguiente:** Task 1 del plan Fase 2a (setup Python + scaffold backend) · QA visual en navegador sigue pendiente (R1–R8)
+- **Siguiente:** Task 5 del plan Fase 2a (pipeline de 2 oleadas + runs + SSE + cancel/supersede) · QA visual en navegador sigue pendiente (R1–R8)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -60,10 +60,10 @@
 
 ## Progreso del plan (Fase 2a) — plan `2026-11-21-fase2a-motor-analisis-real-plan.md`
 
-- [ ] Task 1: Setup Python + scaffold backend (FastAPI, `.env`, pytest)
-- [ ] Task 2: Scanner + miniapp de ejemplo + `GET /api/projects`
-- [ ] Task 3: Cliente LLM + agente perfilador
-- [ ] Task 4: Agentes de vulnerabilidad A01–A10 (prompts, parse, validación)
+- [x] Task 1: Setup Python + scaffold backend (FastAPI, `.env`, pytest) *(commit 99645be, review limpia)*
+- [x] Task 2: Scanner + miniapp de ejemplo + `GET /api/projects` *(commit 762ce06 — 1 fix round: pytest.ini amendado al commit; review limpia)*
+- [x] Task 3: Cliente LLM + agente perfilador *(commit 22d8137, review limpia)*
+- [x] Task 4: Agentes de vulnerabilidad A01–A10 (prompts, parse, validación) *(commit 5c26bb5, review limpia)*
 - [ ] Task 5: Pipeline de 2 oleadas + registro de runs + SSE + cancel/supersede
 - [ ] Task 6: `liveAnalysisService` (SSE) + estado de error en el front
 - [ ] Task 7: Modo live (autodetección, proyectos reales, banner de error, proxy Vite)
