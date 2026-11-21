@@ -1,0 +1,12 @@
+[
+  { "vulnId": "A01", "file": "routes/admin.js" },
+  { "vulnId": "A02", "file": "utils/crypto.js" },
+  { "vulnId": "A03", "file": "routes/orders.js" },
+  { "vulnId": "A04", "file": "routes/transfer.js" },
+  { "vulnId": "A05", "file": "middleware/cors.js" },
+  { "vulnId": "A06", "file": "package.json" },
+  { "vulnId": "A07", "file": "routes/login.js" },
+  { "vulnId": "A08", "file": "routes/plugins.js" },
+  { "vulnId": "A09", "file": "middleware/audit.js" },
+  { "vulnId": "A10", "file": "routes/report.js" }
+]

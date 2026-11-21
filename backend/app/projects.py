@@ -1,0 +1,63 @@
+"""Proyectos de ejemplo dentro de SAMPLES_DIR."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from app.scanner import ScanResult, scan_project
+
+PROJECT_SCOPES: dict[str, list[str]] = {
+    "miniapp": ["."],
+    "dvwa": ["vulnerabilities", "include"],
+}
+
+
+@dataclass
+class ProjectInfo:
+    id: str
+    name: str
+    path: str
+    files: int
+    lines: int
+
+
+def _info(entry: Path, scan: ScanResult) -> ProjectInfo:
+    return ProjectInfo(
+        id=entry.name,
+        name=entry.name,
+        path=entry.resolve().as_posix(),
+        files=len(scan.files),
+        lines=sum(f.lines for f in scan.files),
+    )
+
+
+def list_projects(samples_dir: Path) -> list[ProjectInfo]:
+    if not samples_dir.is_dir():
+        return []
+    projects: list[ProjectInfo] = []
+    for entry in sorted(samples_dir.iterdir(), key=lambda p: p.name):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        scope = PROJECT_SCOPES.get(entry.name, ["."])
+        scan = scan_project(entry, scope)
+        if not scan.files:
+            continue
+        projects.append(_info(entry, scan))
+    return projects
+
+
+def get_project(samples_dir: Path, project_id: str) -> tuple[ProjectInfo, ScanResult] | None:
+    if not project_id or project_id in {".", ".."}:
+        return None
+    entry = samples_dir / project_id
+    # Evita saltarse fuera de samples_dir (p. ej. ".." o rutas absolutas)
+    if entry.resolve().parent != samples_dir.resolve():
+        return None
+    if not entry.is_dir() or entry.name.startswith("."):
+        return None
+    scope = PROJECT_SCOPES.get(project_id, ["."])
+    scan = scan_project(entry, scope)
+    if not scan.files:
+        return None
+    return _info(entry, scan), scan
