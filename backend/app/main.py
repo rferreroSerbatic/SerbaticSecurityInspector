@@ -10,6 +10,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_settings
+from app.git_projects import GitCloneError, git_analyze, git_list, register_git
 from app.llm import LLMClient
 from app.local_projects import local_analyze, local_list, register_local, resolve_local
 from app.pdf_report import build_scope_pdf
@@ -58,7 +59,7 @@ def health_alias():
 
 @app.get("/api/projects")
 def get_projects():
-    return list_projects(load_settings().samples_dir) + local_list()
+    return list_projects(load_settings().samples_dir) + local_list() + git_list()
 
 
 class LocalProjectBody(BaseModel):
@@ -76,10 +77,25 @@ def add_local_project(body: LocalProjectBody):
     return {"project": info}
 
 
+class GitProjectBody(BaseModel):
+    url: str
+
+
+@app.post("/api/projects/git", status_code=201)
+def add_git_project(body: GitProjectBody):
+    try:
+        info = register_git(body.url)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="URL de git no válida (usa una URL http/https)")
+    except GitCloneError as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo clonar: {exc}")
+    return {"project": info}
+
+
 @app.post("/api/analyze", status_code=202)
 async def analyze(body: AnalyzeBody):
     settings = load_settings()
-    got = local_analyze(body.projectId) or get_project(settings.samples_dir, body.projectId)
+    got = local_analyze(body.projectId) or git_analyze(body.projectId) or get_project(settings.samples_dir, body.projectId)
     if got is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     project, scan = got

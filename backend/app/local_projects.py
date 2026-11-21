@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 from app.config import load_settings
+from app.git_projects import GIT
 from app.projects import ProjectInfo
 from app.scanner import ScanResult, scan_project
 
@@ -23,6 +24,8 @@ def resolve_local(path: str) -> Path | None:
         return None
     samples = load_settings().samples_dir.resolve()
     if p == samples or samples in p.parents:
+        return None
+    if any(p == g.resolve() for g in GIT.values()):
         return None
     return p
 
