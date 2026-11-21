@@ -90,6 +90,8 @@ class LLMClient:
                         chunk = json.loads(data)
                     except json.JSONDecodeError as exc:
                         raise LLMError(f"chunk SSE malformado: {exc}") from exc
+                    if not isinstance(chunk, dict):
+                        raise LLMError(f"chunk SSE malformado (no es un objeto): {data[:100]}")
                     if chunk.get("usage"):
                         usage = chunk["usage"]
                     for choice in chunk.get("choices") or []:

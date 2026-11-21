@@ -71,6 +71,18 @@ async def test_stream_malformed_chunk_raises():
 
 
 @pytest.mark.anyio
+async def test_stream_non_dict_chunk_raises():
+    """Chunk SSE válido JSON pero no objeto (null/123/«s») → LLMError, no AttributeError."""
+    def handler(request):
+        return httpx.Response(200, content=b"data: null\n\n",
+                              headers={"content-type": "text/event-stream"})
+    c = LLMClient("http://test/v1", "TESTKEY", "m", transport=httpx.MockTransport(handler))
+    with pytest.raises(LLMError, match="no es un objeto"):
+        await c.chat("s", "u")
+    await c.close()
+
+
+@pytest.mark.anyio
 async def test_stream_truncated_without_done_raises():
     body = b"data: " + json.dumps({"choices": [{"delta": {"content": "a"}}]}).encode() + b"\n\n"
     c = LLMClient("http://test/v1", "TESTKEY", "m",

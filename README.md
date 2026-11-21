@@ -2,7 +2,7 @@
 
 Herramienta web de auditoría de seguridad de código. **La propia aplicación ejecuta el análisis**: un motor de 11 agentes LLM (1 perfilador + 10 especialistas, uno por categoría OWASP Top 10) audita el proyecto contra tu endpoint LLM OpenAI-compatible y emite el progreso en vivo a una UI React de estética cyberpunk.
 
-**Estado: Fase 2a completa (tag `v0.2.0`)** — motor de análisis real + modo live en el front + proyecto de ejemplo ejecutable (`miniapp`) + ground truth 10/10.
+**Estado: Fase 2b completa (tag `v0.3.0`)** — motor de análisis real + modo live en el front + proyecto de ejemplo ejecutable (`miniapp`) + ground truth 10/10 + proyectos propios (carpeta local y repo git) + streaming LLM + informe PDF completo.
 
 ## Cómo funciona
 
@@ -105,7 +105,8 @@ npm run build                                         # tsc --noEmit + vite buil
 
 - **Fase 1 / 1.1** (completa, `v0.1.0`): UI completa + mock + navegación + fondo ambiental.
 - **Fase 2a** (completa, `v0.2.0`): motor de análisis real (FastAPI + 11 agentes LLM + SSE), modo live en el front, miniapp + ground truth, PDF del alcance, modelo/tk/s en pantalla.
-- **Fase 2b** (próxima): auditar **cualquier carpeta local** (hoy solo proyectos de ejemplo) y repos git, streaming del cliente LLM (scopes mayores), PDF del informe completo, híbrido reglas (semgrep) + LLM, desduplicación de hallazgos.
+- **Fase 2b** (completa, `v0.3.0`): auditar **cualquier carpeta local** y repos git, streaming del cliente LLM (scopes mayores), PDF del informe completo, cancel robusto, desduplicación de hallazgos y minors de la 2a.
+- **Fase 2c** (próxima): híbrido reglas (semgrep) + LLM, relocalización exacta de línea.
 - **Fase 3**: imagen Docker «descargable».
 
 ## Notas de operación

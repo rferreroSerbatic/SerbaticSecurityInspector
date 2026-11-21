@@ -3,6 +3,8 @@
 Documentos planos A4: título + texto con salto de línea automático y
 paginación. Las fuentes estándar de reportlab usan WinAnsiEncoding,
 que cubre el acentuado español (por eso no hay emojis en el layout).
+El contenido de usuario (títulos, snippets, textos de alcance) se
+sanea a WinAnsi antes de dibujar: lo no representable pasa a «?».
 """
 
 from __future__ import annotations
@@ -49,6 +51,11 @@ _META_LABELS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _winansi(text: str) -> str:
+    """Las fuentes estándar solo cubren WinAnsi: lo no representable pasa a «?»."""
+    return text.encode("cp1252", "replace").decode("cp1252")
+
+
 def _wrap_lines(c, text: str, font: str, size: float, max_width: float) -> list[str]:
     """Rompela el texto en líneas que caben en ``max_width`` (conserva saltos de línea)."""
     lines: list[str] = []
@@ -86,7 +93,7 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
     y = height - _MARGIN
 
     c.setFont("Helvetica-Bold", _TITLE_SIZE)
-    c.drawString(_MARGIN, y, title)
+    c.drawString(_MARGIN, y, _winansi(title))
     y -= 10 * mm
 
     c.setFont("Helvetica", _TEXT_SIZE)
@@ -94,7 +101,7 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
         if y < _MARGIN:
             c.showPage()
             y = height - _MARGIN
-        c.drawString(_MARGIN, y, line)
+        c.drawString(_MARGIN, y, _winansi(line))
         y -= _LEADING
     c.save()
     return buf.getvalue()
@@ -121,7 +128,7 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                 c.showPage()
                 y = height - _MARGIN
             c.setFont(font, size)
-            c.drawString(_MARGIN, y, wrapped)
+            c.drawString(_MARGIN, y, _winansi(wrapped))
             y -= _LEADING
 
     def gap(mm_value: float) -> None:

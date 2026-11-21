@@ -1,6 +1,5 @@
 """Proyectos por ruta local: registro, listing y análisis (T1 Fase 2b)."""
 import json
-import re
 
 import pytest
 from fastapi.testclient import TestClient

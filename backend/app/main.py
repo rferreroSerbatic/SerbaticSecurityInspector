@@ -96,7 +96,13 @@ def add_git_project(body: GitProjectBody):
 @app.post("/api/analyze", status_code=202)
 async def analyze(body: AnalyzeBody):
     settings = load_settings()
-    got = local_analyze(body.projectId) or git_analyze(body.projectId) or get_project(settings.samples_dir, body.projectId)
+    # Resolución + escaneo en un hilo (rglob + lectura de todos los archivos): fuera del
+    # event loop para no congelar la API con proyectos locales grandes (SSE, /api/projects, /health).
+    # RUNS.start sigue en el loop: la atomicidad check-then-act de cancel/supersede se conserva.
+    got = await asyncio.to_thread(
+        lambda: local_analyze(body.projectId)
+        or git_analyze(body.projectId)
+        or get_project(settings.samples_dir, body.projectId))
     if got is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     project, scan = got

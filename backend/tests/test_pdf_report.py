@@ -1,9 +1,18 @@
 """PDF del alcance (reportlab): generador puro + endpoint de descarga."""
+import base64
+import re
+import zlib
 
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.pdf_report import build_report_pdf, build_scope_pdf
+
+
+def _scope_content(data: bytes) -> bytes:
+    """Stream de contenido del scope PDF descomprimido (ASCII85+Flate por defecto)."""
+    m = re.search(rb"stream\r?\n(.*?)endstream", data, re.S)
+    return zlib.decompress(base64.a85decode(m.group(1), adobe=True))
 
 
 def test_build_scope_pdf_devuelve_pdf():
@@ -72,3 +81,22 @@ def test_full_pdf_endpoint():
     assert r.headers["content-type"] == "application/pdf"
     assert r.headers["content-disposition"] == 'attachment; filename="informe-mi-proyecto.pdf"'
     assert r.content[:5] == b"%PDF-"
+
+
+def test_report_pdf_snippet_no_winansi_se_sustituye():
+    """Revisión F3: contenido no-WinAnsi del usuario (CJK/emoji) → «?», no corruption ni crash."""
+    f = _finding("A03", 1, title="日本語テスト 🚨", snippet="日本語テスト 日本語 emoji 🚨",
+                 solution="日本語")
+    data = build_report_pdf("p", {}, {}, [f])
+    assert data[:5] == b"%PDF-"
+    assert b"?????? ?" in data     # título/snippet sanitizados a «?»
+    assert b"nnnnnn" not in data   # sin la sustitución silenciosa «n» de reportlab
+
+
+def test_scope_pdf_texto_no_winansi_se_sustituye():
+    """Revisión F3: igual para el PDF del alcance (texto + título del usuario)."""
+    data = build_scope_pdf("Alcance con CJK: 日本語テスト 🚨", "Título 日本語")
+    assert data[:5] == b"%PDF-"
+    content = _scope_content(data)
+    assert b"?????? ?" in content
+    assert b"nnnnnn" not in content
