@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.config import load_settings
 from app.llm import LLMClient
+from app.local_projects import local_analyze, local_list, register_local, resolve_local
 from app.pdf_report import build_scope_pdf
 from app.pipeline import ALL_VULN_IDS, run_pipeline
 from app.projects import get_project, list_projects
@@ -57,13 +58,28 @@ def health_alias():
 
 @app.get("/api/projects")
 def get_projects():
-    return list_projects(load_settings().samples_dir)
+    return list_projects(load_settings().samples_dir) + local_list()
+
+
+class LocalProjectBody(BaseModel):
+    path: str
+
+
+@app.post("/api/projects/local", status_code=201)
+def add_local_project(body: LocalProjectBody):
+    if resolve_local(body.path) is None:
+        raise HTTPException(status_code=400,
+                            detail="Ruta no válida: debe existir, ser una carpeta y no estar dentro de samples/")
+    info = register_local(body.path)
+    if info is None:
+        raise HTTPException(status_code=404, detail="Sin archivos de código en esa ruta")
+    return {"project": info}
 
 
 @app.post("/api/analyze", status_code=202)
 async def analyze(body: AnalyzeBody):
     settings = load_settings()
-    got = get_project(settings.samples_dir, body.projectId)
+    got = local_analyze(body.projectId) or get_project(settings.samples_dir, body.projectId)
     if got is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     project, scan = got

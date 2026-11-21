@@ -39,6 +39,7 @@ class ProjectInfo:
     path: str
     files: int
     lines: int
+    kind: str = "sample"
 
 
 def _info(entry: Path, scan: ScanResult) -> ProjectInfo:
