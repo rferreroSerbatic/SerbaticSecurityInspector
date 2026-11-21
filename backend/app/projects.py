@@ -9,7 +9,26 @@ from app.scanner import ScanResult, scan_project
 
 PROJECT_SCOPES: dict[str, list[str]] = {
     "miniapp": ["."],
-    "dvwa": ["vulnerabilities", "include"],
+    # DVWA master reorganizó la estructura: módulos de vulneraciones clásicas por carpeta.
+    # Scope acotado a 12 módulos clásicos (≈127k chars): con el scope completo
+    # (vulnerabilities/ + dvwa/includes/ ≈ 430k chars) y también con los 16 módulos
+    # (≈220k chars), las llamadas LLM no-streaming superaban el timeout de gateway
+    # (~60 s, 504) del endpoint en parte de los agentes. Ver registro de decisiones en
+    # PROGRESS.md (Task 8, 2026-11-21).
+    "dvwa": [
+        "vulnerabilities/sqli",
+        "vulnerabilities/sqli_blind",
+        "vulnerabilities/xss_s",
+        "vulnerabilities/exec",
+        "vulnerabilities/fi",
+        "vulnerabilities/upload",
+        "vulnerabilities/brute",
+        "vulnerabilities/authbypass",
+        "vulnerabilities/csrf",
+        "vulnerabilities/weak_id",
+        "vulnerabilities/open_redirect",
+        "vulnerabilities/csp",
+    ],
 }
 
 

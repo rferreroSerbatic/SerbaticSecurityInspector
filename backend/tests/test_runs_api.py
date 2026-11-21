@@ -55,10 +55,10 @@ def samples_dir(tmp_path):
     (miniapp / "package.json").write_text('{"name": "miniapp"}\n', encoding="utf-8")
 
     dvwa = tmp_path / "dvwa"
-    (dvwa / "vulnerabilities").mkdir(parents=True)
-    (dvwa / "vulnerabilities" / "x.php").write_text("<?php\n", encoding="utf-8")
-    (dvwa / "include").mkdir()
-    (dvwa / "include" / "y.php").write_text("<?php\n", encoding="utf-8")
+    (dvwa / "vulnerabilities" / "sqli").mkdir(parents=True)
+    (dvwa / "vulnerabilities" / "sqli" / "x.php").write_text("<?php\n", encoding="utf-8")
+    (dvwa / "vulnerabilities" / "xss_s").mkdir(parents=True)
+    (dvwa / "vulnerabilities" / "xss_s" / "y.php").write_text("<?php\n", encoding="utf-8")
     return tmp_path
 
 

@@ -138,3 +138,72 @@ def test_pipeline_cancelled_skips_agents():
     asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01", "A03"], run, concurrency=2))
     assert types(run.events)[-1] == "run:cancelled"
     assert run.findings == [] and run.status == RunStatus.CANCELLED
+
+
+def test_supersede_no_wasted_llm_calls():
+    """Fix I1 (rama CANCELLED): tras un supersede, los agentes del run viejo que aún
+    esperan el semáforo NO hacen llamadas LLM (el guard se evalúa al adquirirlo, tras
+    el flip CANCELLING → CANCELLED de ``RunRegistry.start``).
+
+    Mecanismo: con ``concurrency=1`` y ``delay=0.4``, A01 agota el semáforo durante su
+    chat (0.4 s); el main cancela (→ CANCELLING) y suple el run (→ CANCELLED) a los
+    ~0,01-0,05 s, mientras A03 sigue en cola. Al despertar A03 (~0,4 s, ya tras el
+    flip), el guard debe saltarlo sin llamar al LLM. Pre-fix veía ``CANCELLING ≠
+    CANCELLED`` y hacía la llamada (que luego se descartaba post-chat).
+    """
+    reg = RunRegistry()
+    run = reg.start("miniapp", ["A01", "A03"])
+    llm = FakeVulnLLM({"A01": A01_JSON, "A03": A03_JSON}, PROFILE_JSON, delay=0.4)
+    new_run = None
+
+    async def go():
+        nonlocal new_run
+        task = asyncio.create_task(run_pipeline(llm, scan, "miniapp", ["A01", "A03"], run, concurrency=1))
+        # Espera a que A01 esté en vuelo: systems = [perfil, A01]
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if len(llm.systems) >= 2:
+                break
+        assert reg.cancel(run.id)  # RUNNING → CANCELLING
+        new_run = reg.start("miniapp", ["A01"])  # supersede (ruling R3) → run CANCELLED
+        await task
+        await llm.close()
+
+    asyncio.run(go())
+    assert new_run is not None and new_run.status == RunStatus.RUNNING
+    assert run.status == RunStatus.CANCELLED
+    # La aserción del fix: solo 2 llamadas (perfil + A01, en vuelo al flip);
+    # A03, en cola al flip, NUNCA llama al LLM.
+    assert len(llm.systems) == 2
+    # A03 cerrado vía guard (skip), no vía chat descartado:
+    assert any(
+        e["type"] == "agent:done" and e["vulnId"] == "A03" and e["findingsCount"] == 0
+        for e in run.events
+    )
+    # El run suplantado se cerró en el supersede (el registry emitió run:cancelled en el
+    # flip); después solo quedan los skips de los agentes en cola:
+    assert any(e["type"] == "run:cancelled" for e in run.events)
+    assert not any(e["type"] == "run:done" for e in run.events)
+
+
+def test_pipeline_error_skips_queued_agents():
+    """Fix I1 (rama ERROR): si un agente falla (p. ej. 504) y el run pasa a ERROR,
+    los agentes en cola no hacen llamadas LLM (se saltan en el guard). Determinista
+    sin timing: con ``concurrency=1`` y sin delay, A01 falla de forma síncrona (el
+    raise no cede el event loop) y el run está en ERROR antes de que A03 arranque."""
+    reg = RunRegistry()
+    run = reg.start("miniapp", ["A01", "A03"])
+    llm = FakeVulnLLM({"A01": A01_JSON, "A03": A03_JSON}, PROFILE_JSON, fail_vulns={"A01"})
+    asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01", "A03"], run, concurrency=1))
+    # run:error emitido al fallar A01; después solo quedan los skips de los agentes en cola:
+    assert any(e["type"] == "run:error" for e in run.events)
+    assert not any(e["type"] == "run:done" for e in run.events)
+    assert run.status == RunStatus.ERROR
+    # Solo 2 llamadas (perfil + A01, que falló): A03 no llega a llamar.
+    assert len(llm.systems) == 2
+    # A03 cerrado vía guard (skip), con el run ya en ERROR:
+    assert any(
+        e["type"] == "agent:done" and e["vulnId"] == "A03" and e["findingsCount"] == 0
+        for e in run.events
+    )
+    assert run.findings == []

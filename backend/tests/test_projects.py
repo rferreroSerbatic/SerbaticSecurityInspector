@@ -14,10 +14,10 @@ def samples_dir(tmp_path):
     (miniapp / "package.json").write_text('{"name": "miniapp"}\n', encoding="utf-8")
 
     dvwa = tmp_path / "dvwa"
-    (dvwa / "vulnerabilities").mkdir(parents=True)
-    (dvwa / "vulnerabilities" / "x.php").write_text("<?php\n", encoding="utf-8")
-    (dvwa / "include").mkdir()
-    (dvwa / "include" / "y.php").write_text("<?php\n", encoding="utf-8")
+    (dvwa / "vulnerabilities" / "sqli").mkdir(parents=True)
+    (dvwa / "vulnerabilities" / "sqli" / "x.php").write_text("<?php\n", encoding="utf-8")
+    (dvwa / "vulnerabilities" / "xss_s").mkdir(parents=True)
+    (dvwa / "vulnerabilities" / "xss_s" / "y.php").write_text("<?php\n", encoding="utf-8")
     (dvwa / "setup").mkdir()
     (dvwa / "setup" / "zz.php").write_text("<?php\n", encoding="utf-8")
     return tmp_path
@@ -38,7 +38,7 @@ def test_missing_dvwa_is_fine(tmp_path):
 def test_get_project_returns_scan(samples_dir):
     info, scan = get_project(samples_dir, "dvwa")
     assert info.id == "dvwa"
-    assert {f.path for f in scan.files} == {"vulnerabilities/x.php", "include/y.php"}
+    assert {f.path for f in scan.files} == {"vulnerabilities/sqli/x.php", "vulnerabilities/xss_s/y.php"}
 
 
 def test_api_projects(monkeypatch, samples_dir):

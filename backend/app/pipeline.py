@@ -39,16 +39,21 @@ async def run_pipeline(
         return
 
     # Oleada 1: perfilador (1 llamada LLM)
-    profile, used_fallback = await run_profile(llm, scan, project_name)
-    emit(run, "profile:done", profile=profile.to_dict())
-    emit(
-        run,
-        "log",
-        vulnId="global",
-        message=f"Perfil: {profile.language} — {len(profile.frameworks)} frameworks · {len(scan.files)} archivos, {lines} líneas",
-    )
-    if used_fallback:
-        emit(run, "log", vulnId="global", message="Perfil generado por reglas (el LLM no devolvió JSON válido)")
+    if run.status in (RunStatus.CANCELLING, RunStatus.ERROR, RunStatus.CANCELLED):
+        # Run ya terminal antes de la primera llamada (p. ej. cancel+supersede inmediato):
+        # no gastar la llamada de perfil; los agentes saltan en su guard sin usar el perfil.
+        profile = None
+    else:
+        profile, used_fallback = await run_profile(llm, scan, project_name)
+        emit(run, "profile:done", profile=profile.to_dict())
+        emit(
+            run,
+            "log",
+            vulnId="global",
+            message=f"Perfil: {profile.language} — {len(profile.frameworks)} frameworks · {len(scan.files)} archivos, {lines} líneas",
+        )
+        if used_fallback:
+            emit(run, "log", vulnId="global", message="Perfil generado por reglas (el LLM no devolvió JSON válido)")
 
     # Oleada 2: agentes de vulnerabilidad (1 llamada LLM por categoría, pool acotado)
     ordered = [v for v in ALL_VULN_IDS if v in vuln_ids]
@@ -59,7 +64,10 @@ async def run_pipeline(
 
     async def agent(v: str) -> None:
         async with sem:
-            if run.status == RunStatus.CANCELLING:
+            # Guard evaluado al adquirir el semáforo (fix I1 final review): un run puede
+            # pasar a ERROR (504 de otro agente) o CANCELLED (supersede) mientras este
+            # agente espera en cola; sin este check haría una llamada LLM real descartada.
+            if run.status in (RunStatus.ERROR, RunStatus.CANCELLING, RunStatus.CANCELLED):
                 emit(run, "agent:done", vulnId=v, findingsCount=0, criticalCount=0)
                 emit(run, "log", vulnId=v, message="agente cancelado")
                 return
