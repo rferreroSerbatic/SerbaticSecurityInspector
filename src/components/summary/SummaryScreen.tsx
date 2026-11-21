@@ -29,6 +29,7 @@ export function SummaryScreen({
   onGenerateScope,
   onNewAudit,
   onBack,
+  demoBaseUrl,
 }: {
   analysis: AnalysisProgress
   selectedFindingIds: string[]
@@ -36,6 +37,8 @@ export function SummaryScreen({
   onGenerateScope: () => void
   onNewAudit: () => void
   onBack: () => void
+  /** Base de la web de ejemplo ejecutable (solo proyectos de ejemplo con demo). */
+  demoBaseUrl?: string
 }) {
   const { agents, findings, meta } = analysis
   const total = findings.length
@@ -121,6 +124,7 @@ export function SummaryScreen({
                   expanded={expandedIds.includes(f.id)}
                   onToggleSelect={() => onToggleFinding(f.id)}
                   onToggleExpand={() => toggleExpand(f.id)}
+                  demoHref={demoBaseUrl ? `${demoBaseUrl}#${f.vulnId}` : undefined}
                 />
               ) : null
             })

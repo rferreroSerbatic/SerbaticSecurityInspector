@@ -14,6 +14,12 @@ import { ScopeModal } from './components/scope/ScopeModal'
 /** Estado de la autodetección del backend (solo sin props). */
 type Detection = 'loading' | 'live' | 'mock'
 
+/** Webs de ejemplo ejecutables por proyecto de ejemplo (Fase 2a: solo miniapp).
+ *  Arranque: `cd samples/miniapp; npm start` → http://localhost:3000. */
+const SAMPLE_DEMO_URLS: Record<string, string> = {
+  miniapp: 'http://localhost:3000',
+}
+
 /**
  * Cableado completo del flujo de auditoría: useAnalysis es la única fuente de
  * estado y AppShell(step) rodea cada pantalla según flow.step.
@@ -121,6 +127,7 @@ export default function App({
             onGenerateScope={flow.openScope}
             onNewAudit={flow.newAudit}
             onBack={flow.goVulns}
+            demoBaseUrl={inLive ? SAMPLE_DEMO_URLS[flow.source?.value ?? ''] : undefined}
           />
         )
       default:

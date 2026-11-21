@@ -77,6 +77,7 @@ const renderScreen = (
     onNewAudit?: () => void
     onBack?: () => void
   } = {},
+  demoBaseUrl?: string,
 ) =>
   render(
     <SummaryScreen
@@ -86,6 +87,7 @@ const renderScreen = (
       onGenerateScope={handlers.onGenerateScope ?? (() => {})}
       onNewAudit={handlers.onNewAudit ?? (() => {})}
       onBack={handlers.onBack ?? (() => {})}
+      demoBaseUrl={demoBaseUrl}
     />,
   )
 
@@ -252,6 +254,21 @@ test('«← Volver» llama a onBack', () => {
   renderScreen(base, [], { onBack })
   fireEvent.click(screen.getByRole('button', { name: /← volver/i }))
   expect(onBack).toHaveBeenCalled()
+})
+
+// --- QA-iter 1 (usuario): enlaces «ver en la demo» a la web de ejemplo ejecutable ---
+test('con demoBaseUrl, cada hallazgo enlaza a su sección de la demo', () => {
+  renderScreen(base, [], {}, 'http://localhost:3000')
+  const links = screen.getAllByRole('link', { name: /ver en la demo/i })
+  expect(links).toHaveLength(4)
+  expect(links[0]).toHaveAttribute('href', 'http://localhost:3000#A01')
+  expect(links.some(l => l.getAttribute('href') === 'http://localhost:3000#A03')).toBe(true)
+  expect(links.some(l => l.getAttribute('href') === 'http://localhost:3000#A02')).toBe(true)
+})
+
+test('sin demoBaseUrl no hay enlaces de demo (proyectos sin web de ejemplo)', () => {
+  renderScreen()
+  expect(screen.queryAllByRole('link', { name: /ver en la demo/i })).toHaveLength(0)
 })
 
 test('GENERAR ALCANCE llama a onGenerateScope y NUEVA AUDITORÍA llama a onNewAudit', () => {

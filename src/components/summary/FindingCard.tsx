@@ -15,6 +15,7 @@ export function FindingCard({
   expanded,
   onToggleSelect,
   onToggleExpand,
+  demoHref,
 }: {
   finding: Finding
   vuln: Vuln
@@ -22,6 +23,8 @@ export function FindingCard({
   expanded: boolean
   onToggleSelect: () => void
   onToggleExpand: () => void
+  /** URL de la sección de la demo ejecutable (p. ej. http://localhost:3000#A03). */
+  demoHref?: string
 }) {
   return (
     <article data-testid="finding-card" className={`rounded-md border ${CARD_STYLES[finding.severity]}`}>
@@ -68,6 +71,17 @@ export function FindingCard({
             {expanded ? '▾' : '▸'}
           </span>
         </button>
+        {demoHref && (
+          <a
+            href={demoHref}
+            target="_blank"
+            rel="noreferrer"
+            title="Abrir la web de ejemplo en la sección de esta vulnerabilidad"
+            className="shrink-0 rounded border border-neon-cyan/40 px-2 py-1 font-mono text-[10px] tracking-wide text-neon-cyan transition-colors duration-200 hover:bg-neon-cyan/10"
+          >
+            🔎 ver en la demo
+          </a>
+        )}
       </div>
 
       {expanded && (
