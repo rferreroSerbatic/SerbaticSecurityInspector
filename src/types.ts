@@ -66,6 +66,8 @@ export interface ProjectInfo {
   path: string
   files: number
   lines: number
+  /** Origen del proyecto (Fase 2b): muestra el tag LOCAL/GIT en la lista. */
+  kind?: 'sample' | 'local' | 'git'
 }
 
 export type SourceKind = 'folder' | 'git'

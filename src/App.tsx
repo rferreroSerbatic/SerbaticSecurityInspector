@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createMockAnalysisService } from './services/mockAnalysisService'
 import { createLiveAnalysisService } from './services/liveAnalysisService'
 import type { AnalysisService, ProjectInfo } from './types'
@@ -53,6 +53,17 @@ export default function App({
   const inLive = liveProjects !== null
   const autoDetect = service === undefined && (projects === undefined || projects === null)
 
+  // Fetch de proyectos reutilizable (autodetección + refresh tras registrar uno propio).
+  const fetchProjects = useCallback(async (): Promise<ProjectInfo[]> => {
+    const res = await fetch('/api/projects', { signal: AbortSignal.timeout(1500) })
+    if (!res.ok) throw new Error(`projects: ${res.status}`)
+    return (await res.json()) as ProjectInfo[]
+  }, [])
+
+  const refreshProjects = useCallback(async () => {
+    setDetectedProjects(await fetchProjects())
+  }, [fetchProjects])
+
   // Autodetección al montar (solo sin props): health → proyectos, o mock.
   useEffect(() => {
     if (!autoDetect) return
@@ -60,11 +71,7 @@ export default function App({
     fetch('/api/health', { signal: AbortSignal.timeout(1500) })
       .then(res => {
         if (!res.ok) throw new Error(`health: ${res.status}`)
-        return fetch('/api/projects', { signal: AbortSignal.timeout(1500) })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error(`projects: ${res.status}`)
-        return res.json() as Promise<ProjectInfo[]>
+        return fetchProjects()
       })
       .then(list => {
         if (disposed) return
@@ -78,7 +85,7 @@ export default function App({
     return () => {
       disposed = true
     }
-  }, [autoDetect])
+  }, [autoDetect, fetchProjects])
 
   // Una instancia del servicio live por fase live (directa o detectada).
   const liveService = useMemo(
@@ -104,6 +111,7 @@ export default function App({
             projects={liveProjects ?? undefined}
             onBack={flow.backToHome}
             onContinue={flow.setSource}
+            onRefresh={autoDetect ? refreshProjects : undefined}
           />
         )
       case 'vulns':

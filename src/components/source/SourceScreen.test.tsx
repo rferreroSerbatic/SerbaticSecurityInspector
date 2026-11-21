@@ -1,6 +1,8 @@
+import { act } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SourceScreen } from './SourceScreen'
+import type { ProjectInfo } from '../../types'
 
 afterEach(cleanup)
 
@@ -139,7 +141,138 @@ test('modo live: lista real, sin picker ni git', () => {
   expect(onContinue).toHaveBeenCalledWith({ kind: 'folder', label: 'miniapp', value: 'miniapp' })
 })
 
-test('modo live: nota de Fase 2b', () => {
-  const { getByText } = render(<SourceScreen projects={PROJECTS} onBack={() => {}} onContinue={() => {}} />)
-  expect(getByText(/Fase 2b/)).toBeTruthy()
+// --- Task 7 (Fase 2b): bloque «AUDITAR UN PROYECTO PROPIO» (ruta local + git) ---
+const realFetch = globalThis.fetch
+
+afterEach(() => {
+  globalThis.fetch = realFetch
+})
+
+const liveScreen = (props: { projects?: ProjectInfo[]; onRefresh?: () => Promise<void> } = {}) =>
+  render(
+    <SourceScreen
+      projects={props.projects ?? PROJECTS}
+      onBack={() => {}}
+      onContinue={() => {}}
+      onRefresh={props.onRefresh}
+    />,
+  )
+
+test('modo live: bloque «Auditar un proyecto propio» con las 2 filas', () => {
+  liveScreen()
+  expect(screen.getByText('AUDITAR UN PROYECTO PROPIO')).toBeInTheDocument()
+  // collapseWhitespace: false — el normalizador por defecto colapsaría los espacios
+  // múltiples del placeholder («miapp  o  /home») y el matcher exacto fallaría.
+  expect(
+    screen.getByPlaceholderText('C:\\proyectos\\miapp  o  /home/user/proj', {
+      collapseWhitespace: false,
+    }),
+  ).toBeInTheDocument()
+  expect(screen.getByPlaceholderText('https://github.com/org/repo')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'AUDITAR RUTA' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'CLONAR Y AUDITAR' })).toBeDisabled()
+})
+
+test('modo live: registra una ruta local (201 → onRefresh + input limpio)', async () => {
+  const fetchMockFn = vi
+    .fn()
+    .mockResolvedValue({ ok: true, status: 201, json: async () => ({ project: { id: 'miapp' } }) })
+  globalThis.fetch = fetchMockFn as unknown as typeof fetch
+  const onRefresh = vi.fn().mockResolvedValue(undefined)
+  liveScreen({ onRefresh })
+
+  const input = screen.getByLabelText('Ruta local del proyecto')
+  fireEvent.change(input, { target: { value: 'C:\\proyectos\\mi app' } })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'AUDITAR RUTA' }))
+  })
+
+  expect(fetchMockFn).toHaveBeenCalledWith('/api/projects/local', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: 'C:\\proyectos\\mi app' }),
+  })
+  expect(onRefresh).toHaveBeenCalledTimes(1)
+  expect(input).toHaveValue('')
+})
+
+test('modo live: error 400 de ruta', async () => {
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 400 }) as unknown as typeof fetch
+  liveScreen()
+  const input = screen.getByLabelText('Ruta local del proyecto')
+  fireEvent.change(input, { target: { value: 'C:\\noexiste' } })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'AUDITAR RUTA' }))
+  })
+  expect(
+    screen.getByText('Ruta no válida: debe existir, ser una carpeta y no estar dentro de samples/'),
+  ).toBeInTheDocument()
+})
+
+test('modo live: error 404 de ruta', async () => {
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch
+  liveScreen()
+  const input = screen.getByLabelText('Ruta local del proyecto')
+  fireEvent.change(input, { target: { value: 'C:\\vacia' } })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'AUDITAR RUTA' }))
+  })
+  expect(screen.getByText('Sin archivos de código en esa ruta')).toBeInTheDocument()
+})
+
+test('modo live: clonación git pendiente y éxito', async () => {
+  let resolveGit!: (res: { ok: boolean; status: number }) => void
+  const fetchMockFn = vi.fn(
+    () => new Promise<{ ok: boolean; status: number }>(resolve => { resolveGit = resolve }),
+  )
+  globalThis.fetch = fetchMockFn as unknown as typeof fetch
+  const onRefresh = vi.fn().mockResolvedValue(undefined)
+  liveScreen({ onRefresh })
+
+  const input = screen.getByLabelText('URL del repositorio git')
+  fireEvent.change(input, { target: { value: 'https://github.com/org/repo' } })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'CLONAR Y AUDITAR' }))
+  })
+  expect(screen.getByRole('button', { name: 'CLONANDO…' })).toBeInTheDocument()
+
+  await act(async () => {
+    resolveGit({ ok: true, status: 201 })
+  })
+  expect(fetchMockFn).toHaveBeenCalledWith('/api/projects/git', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: 'https://github.com/org/repo' }),
+  })
+  expect(onRefresh).toHaveBeenCalledTimes(1)
+  expect(input).toHaveValue('')
+})
+
+test('modo live: error 502 de git', async () => {
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 502 }) as unknown as typeof fetch
+  liveScreen()
+  const input = screen.getByLabelText('URL del repositorio git')
+  fireEvent.change(input, { target: { value: 'https://github.com/org/nope' } })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'CLONAR Y AUDITAR' }))
+  })
+  expect(
+    screen.getByText('No se pudo clonar: revisa la URL o inténtalo de nuevo'),
+  ).toBeInTheDocument()
+})
+
+test('modo live: tag LOCAL/GIT según kind (sample sin tag)', () => {
+  const projects: ProjectInfo[] = [
+    { id: 'miniapp', name: 'miniapp', path: 'C:/samples/miniapp', files: 12, lines: 340 },
+    { id: 'miapp', name: 'miapp', path: 'C:/proyectos/miapp', files: 30, lines: 800, kind: 'local' },
+    { id: 'repo', name: 'repo', path: 'C:/clones/repo', files: 40, lines: 900, kind: 'git' },
+  ]
+  liveScreen({ projects })
+  expect(screen.getByText('LOCAL')).toBeInTheDocument()
+  expect(screen.getByText('GIT')).toBeInTheDocument()
+})
+
+test('modo mock: sin el bloque «Auditar un proyecto propio»', () => {
+  renderScreen()
+  expect(screen.queryByText(/auditar un proyecto propio/i)).toBeNull()
 })

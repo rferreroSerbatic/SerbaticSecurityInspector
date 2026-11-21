@@ -27,17 +27,27 @@ export function SourceScreen({
   onBack,
   onContinue,
   projects,
+  onRefresh,
 }: {
   onBack: () => void
   onContinue: (s: Source) => void
   /** Modo live (Fase 2a): proyectos reales del backend. `undefined` → modo mock. */
   projects?: ProjectInfo[]
+  /** Modo live (Fase 2b): refrescar la lista tras registrar un proyecto propio. */
+  onRefresh?: () => Promise<void>
 }) {
   const live = projects !== undefined
   const [tab, setTab] = useState<'folder' | 'git'>('folder')
   const [selected, setSelected] = useState<number | null>(null)
   const [gitUrl, setGitUrl] = useState('')
   const [picked, setPicked] = useState<{ name: string; fileCount: number } | null>(null)
+  // Bloque «AUDITAR UN PROYECTO PROPIO» (solo modo live, Fase 2b).
+  const [localPath, setLocalPath] = useState('')
+  const [gitRepoUrl, setGitRepoUrl] = useState('')
+  const [localBusy, setLocalBusy] = useState(false)
+  const [gitBusy, setGitBusy] = useState(false)
+  const [localError, setLocalError] = useState<string | null>(null)
+  const [gitError, setGitError] = useState<string | null>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const canContinue = live
@@ -69,6 +79,62 @@ export function SourceScreen({
       : e.target.value.split(/[\\/]/).pop() ?? e.target.value
     setPicked({ name, fileCount: files.length })
     setSelected(null)
+  }
+
+  const submitLocal = async () => {
+    const path = localPath.trim()
+    if (!path || localBusy || gitBusy) return
+    setLocalBusy(true)
+    setLocalError(null)
+    try {
+      const res = await fetch('/api/projects/local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      if (res.status === 201) {
+        await onRefresh?.()
+        setLocalPath('')
+      } else if (res.status === 400) {
+        setLocalError('Ruta no válida: debe existir, ser una carpeta y no estar dentro de samples/')
+      } else if (res.status === 404) {
+        setLocalError('Sin archivos de código en esa ruta')
+      } else {
+        setLocalError('Error de conexión con el backend')
+      }
+    } catch {
+      setLocalError('Error de conexión con el backend')
+    } finally {
+      setLocalBusy(false)
+    }
+  }
+
+  const submitGit = async () => {
+    const url = gitRepoUrl.trim()
+    if (!url || localBusy || gitBusy) return
+    setGitBusy(true)
+    setGitError(null)
+    try {
+      const res = await fetch('/api/projects/git', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      if (res.status === 201) {
+        await onRefresh?.()
+        setGitRepoUrl('')
+      } else if (res.status === 400) {
+        setGitError('URL de git no válida (usa una URL http/https)')
+      } else if (res.status === 502) {
+        setGitError('No se pudo clonar: revisa la URL o inténtalo de nuevo')
+      } else {
+        setGitError('Error de conexión con el backend')
+      }
+    } catch {
+      setGitError('Error de conexión con el backend')
+    } finally {
+      setGitBusy(false)
+    }
   }
 
   const tabClasses = (active: boolean) =>
@@ -104,8 +170,13 @@ export function SourceScreen({
                       : 'border-ink-faint opacity-60 hover:opacity-100'
                   }`}
                 >
-                  <span className="text-sm font-bold text-ink">
+                  <span className="flex items-center gap-2 text-sm font-bold text-ink">
                     <span className="text-neon-cyan">📁 {p.name}</span>
+                    {p.kind && p.kind !== 'sample' && (
+                      <span className="font-mono text-[10px] text-neon-cyan">
+                        {p.kind === 'local' ? 'LOCAL' : 'GIT'}
+                      </span>
+                    )}
                   </span>
                   <span className="flex items-center gap-3">
                     <span className="font-mono text-xs text-ink-dim">{p.path}</span>
@@ -114,9 +185,57 @@ export function SourceScreen({
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink-faint">
-              Fase 2b: carpeta local y repositorio git
-            </p>
+            <div className="mt-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-ink-dim">
+                AUDITAR UN PROYECTO PROPIO
+              </p>
+              <div className="mt-4 flex flex-col gap-4">
+                <div>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      placeholder={'C:\\proyectos\\miapp  o  /home/user/proj'}
+                      aria-label="Ruta local del proyecto"
+                      value={localPath}
+                      onChange={e => setLocalPath(e.target.value)}
+                      className="w-full border border-ink-faint bg-panel px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(0,229,255,0.25)] focus:outline-none"
+                    />
+                    <NeonButton
+                      variant="outline"
+                      disabled={!localPath.trim() || localBusy || gitBusy}
+                      onClick={() => { void submitLocal() }}
+                    >
+                      AUDITAR RUTA
+                    </NeonButton>
+                  </div>
+                  {localError && (
+                    <p className="mt-2 font-mono text-xs text-sev-critical">{localError}</p>
+                  )}
+                </div>
+                <div>
+                  <div className="flex gap-3">
+                    <input
+                      type="url"
+                      placeholder="https://github.com/org/repo"
+                      aria-label="URL del repositorio git"
+                      value={gitRepoUrl}
+                      onChange={e => setGitRepoUrl(e.target.value)}
+                      className="w-full border border-ink-faint bg-panel px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(0,229,255,0.25)] focus:outline-none"
+                    />
+                    <NeonButton
+                      variant="outline"
+                      disabled={!gitRepoUrl.trim() || localBusy || gitBusy}
+                      onClick={() => { void submitGit() }}
+                    >
+                      {gitBusy ? 'CLONANDO…' : 'CLONAR Y AUDITAR'}
+                    </NeonButton>
+                  </div>
+                  {gitError && (
+                    <p className="mt-2 font-mono text-xs text-sev-critical">{gitError}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </>
         ) : (
           <>
