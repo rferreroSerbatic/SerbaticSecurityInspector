@@ -40,7 +40,8 @@ export interface LogLine {
 }
 
 export interface AnalysisProgress {
-  status: 'idle' | 'running' | 'done'
+  status: 'idle' | 'running' | 'done' | 'error'
+  error?: string
   globalProgress: number // 0..100
   agents: AgentProgress[]
   logLines: LogLine[]
