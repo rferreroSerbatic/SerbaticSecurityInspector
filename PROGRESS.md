@@ -5,10 +5,10 @@
 
 ## Estado actual
 
-- **Fase:** 1 — **COMPLETA** (15/15 tasks, push + tag v0.1.0)
-- **Fase 1.1** (UX: fondo full-bleed, volver/migas de pan, carpeta real) — **COMPLETA** (4/4 tasks, commits `c82c8c9…36f1f6f` en `main`; review por task + final review de rama completa limpias; 77/77 tests, build limpio)
+- **Fase:** 1 + 1.1 — **COMPLETA** (15/15 + 4/4, push + tag v0.1.0; 77/77 tests, build limpio)
+- **Fase 2a** (motor de análisis real: backend FastAPI + 11 agentes LLM + SSE + modo live en el front) — **EN MARCHA** (diseño + plan aprobados 2026-11-21; 0/8 tasks)
 - **Tarea en curso:** ninguna
-- **Siguiente:** QA visual en navegador (R1–R6 + nuevos R7–R8) · Fase 2 (backend FastAPI)
+- **Siguiente:** Task 1 del plan Fase 2a (setup Python + scaffold backend) · QA visual en navegador sigue pendiente (R1–R8)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -58,6 +58,17 @@
 - [x] Task 4: E2E de «volver» + verificación final *(commit 36f1f6f; review limpia)*
 - **Final review de rama (79974a2..36f1f6f): limpia** — 5 Review Focus PASS, sin Critical/Important, 5 minors diferidos (ver registro de decisiones).
 
+## Progreso del plan (Fase 2a) — plan `2026-11-21-fase2a-motor-analisis-real-plan.md`
+
+- [ ] Task 1: Setup Python + scaffold backend (FastAPI, `.env`, pytest)
+- [ ] Task 2: Scanner + miniapp de ejemplo + `GET /api/projects`
+- [ ] Task 3: Cliente LLM + agente perfilador
+- [ ] Task 4: Agentes de vulnerabilidad A01–A10 (prompts, parse, validación)
+- [ ] Task 5: Pipeline de 2 oleadas + registro de runs + SSE + cancel/supersede
+- [ ] Task 6: `liveAnalysisService` (SSE) + estado de error en el front
+- [ ] Task 7: Modo live (autodetección, proyectos reales, banner de error, proxy Vite)
+- [ ] Task 8: E2E real (LLM + DVWA) + ground truth + cierre (tag v0.2.0)
+
 ## Entorno
 
 | Cosa | Estado |
@@ -85,8 +96,10 @@
 - 2026-11-21 — **Fase 1.1 completada** (4/4 tasks + reviews por task + final review de rama limpia; 77/77 tests, build limpio). Rulings que desviaron del texto literal del plan (todos en el ledger SDD, verificado por el final reviewer): (1) el glow de `VulnSelectScreen` también se eliminó (la lista de archivos del brief lo omitía, pero su texto normativo exige «ninguna pantalla renderiza radial-gradient»); (2) `webkitdirectory=""` + ampliación `declare module 'react'` en vez del `declare global` del brief (incompilable con TS 5.6: lib.dom ya declara `webkitdirectory: boolean`; y el atributo sin valor generaba warning de React 18, prohibido por el propio criterio «output sin warnings» del plan); (3) la prioridad de la carpeta real sobre los demos es incondicional (el brief lo prescribe) → si el usuario elige carpeta y luego un radio demo, CONTINUAR sigue mandando la carpeta (la línea de confirmación lo hace visible) — **diferido a Fase 2** como UX a resolver junto con el análisis real; (4) duplicación del par cancel en `useAnalysis` (ahora 5×) — diferido a Fase 2 (helper `cancelCurrent()`); (5) la ampliación de tipos de `webkitdirectory` vive en `SourceScreen.tsx` — mover a tipos compartidos cuando aparezca un segundo consumidor; (6) doc-level: la spec dice «Seleccionar carpeta…» y el plan/la app usan «📂 SELECCIONAR CARPETA» (el plan manda; alinear la spec en la próxima edición).
 - 2026-11-21 — Sesión de ejecución: por instrucción del usuario, todos los subagentes corrieron con `aitana/qwen3.8-fp8` (Qwen3.8 Aitana LLM) a partir de media Fase 1.1 (la implementación de la Task 2 ya estaba hecha con otro modelo y se mantuvo).
 - 2026-11-21 — **Pautas de trabajo nuevas (usuario, tras Fase 1.1):** (1) **menos commits, agrupados**: uno por task, con la implementación y sus fix rounds de review en el mismo commit (amendar antes de pushear; push único al terminar la task) — en Fase 1.1 salieron 9 commits + 1 docs; objetivo a partir de ahora ≈1 commit por task. (2) **menos comprobaciones**: rojo→verde solo del test de la task; suite completa + `npm run build` una sola vez al final de la task; sin re-ejecuciones del coordinador que dupliquen evidencia ya dejada en el report del subagente. Detalle en `AGENTS.md` «Reglas de trabajo».
+- 2026-11-21 — **Fase 2a aprobada** (diseño + plan): motor de análisis real = backend FastAPI + **11 agentes LLM** (1 perfilador + 10 OWASP) contra **qwen3.8 FP8** vía el endpoint del usuario (`https://aitana.serbatic.es/v1`, OpenAI-compatible; `enable_thinking: false` — verificado 2026-11-21 con llamada real; contexto 256k). El análisis lo ejecuta **la app en runtime** (el usuario descartó expresamente usar el agente de desarrollo/OpenCode como motor). API key en `backend/.env` (gitignored; copiada de la config de OpenCode, nunca en el front ni en git). Proyectos de ejemplo: `samples/miniapp` (Express, 10 vulns sembradas, una por categoría; test de regresión ≥ 8/10 contra `expected-findings.json`) + `samples/dvwa` (se clona; scope de análisis `vulnerabilities/` + `include/`). Frontend: `liveAnalysisService` tras `AnalysisService` + autodetección de backend + banner de error; picker/git ocultos en modo live (→ 2b). **Rulings del builder check (R1–R3):** (1) `run:error`/409 → nuevo `status: 'error'` + banner mínimo en ProgressScreen; el cancel no necesita estado nuevo (la máquina `useAnalysis` ya lo gestiona); (2) el escaneo distingue `files` de `manifests` y ambos son `file` válido (ruling para que A06 —`package.json`— no se descarte sistemáticamente); (3) el slot de run se libera al terminar el enfriamiento, pero un run en estado `cancelling` puede ser **suplantado** (supersede) por un `POST /api/analyze` nuevo → «volver y relanzar» funciona al instante. Python **3.12.10** instalado vía winget. Design: `docs/superpowers/specs/2026-11-21-fase2a-motor-analisis-real-design.md`; plan de 8 tasks: `docs/superpowers/plans/2026-11-21-fase2a-motor-analisis-real-plan.md`.
 
 ## Fuera de scope (fases futuras)
 
-- **Fase 2:** backend FastAPI — carpeta real, clonado git, agentes reales (reglas + LLM con API key en `.env`), progreso SSE, PDF real (reportlab/weasyprint).
+- **Fase 2a (en marcha):** motor real — backend FastAPI, 11 agentes LLM, SSE, proyectos de ejemplo (miniapp + DVWA), modo live en el front. Ver plan de Fase 2a.
+- **Fase 2b:** carpeta real desde el picker, clonado git, PDF real (reportlab/weasyprint), cancel robusto, híbrido reglas (semgrep)+LLM, relocalización exacta de línea.
 - **Fase 3:** imagen Docker «descargable».
