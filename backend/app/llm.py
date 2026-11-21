@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 
@@ -65,29 +66,50 @@ class LLMClient:
             "temperature": 0,
             "max_tokens": max_tokens,
             "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True,
+            "stream_options": {"include_usage": True},
         }
         t0 = time.monotonic()
+        content_parts: list[str] = []
+        usage: dict = {}
+        done = False
         try:
-            response = await self._client.post("/chat/completions", json=payload)
+            async with self._client.stream("POST", "/chat/completions", json=payload) as response:
+                if not response.is_success:
+                    body = (await response.aread()).decode(errors="replace")[:200]
+                    raise LLMError(f"el LLM respondió con estado {response.status_code}: {body}")
+                async for line in response.aiter_lines():
+                    line = line.strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        done = True
+                        break
+                    try:
+                        chunk = json.loads(data)
+                    except json.JSONDecodeError as exc:
+                        raise LLMError(f"chunk SSE malformado: {exc}") from exc
+                    if chunk.get("usage"):
+                        usage = chunk["usage"]
+                    for choice in chunk.get("choices") or []:
+                        piece = (choice.get("delta") or {}).get("content")
+                        if isinstance(piece, str) and piece:
+                            content_parts.append(piece)
         except httpx.HTTPError as exc:
             raise LLMError(f"error de red hablando con el LLM: {exc}") from exc
-        if not response.is_success:
-            raise LLMError(f"el LLM respondió con estado {response.status_code}: {response.text[:200]}")
-        try:
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            usage = data.get("usage") or {}
-            result = ChatResult(
-                content=content,
-                prompt_tokens=int(usage.get("prompt_tokens") or 0),
-                completion_tokens=int(usage.get("completion_tokens") or 0),
-                elapsed_s=time.monotonic() - t0,
-            )
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise LLMError(f"respuesta del LLM malformada: {exc}") from exc
-        if not isinstance(result.content, str):
-            raise LLMError("el LLM devolvió un 'content' no textual")
-        return result
+        except LLMError:
+            raise
+        if not done:
+            raise LLMError("stream SSE truncado (no llegó [DONE])")
+        if not content_parts:
+            raise LLMError("el LLM no devolvió contenido")
+        return ChatResult(
+            content="".join(content_parts),
+            prompt_tokens=int(usage.get("prompt_tokens") or 0),
+            completion_tokens=int(usage.get("completion_tokens") or 0),
+            elapsed_s=time.monotonic() - t0,
+        )
 
     async def close(self) -> None:
         await self._client.aclose()
