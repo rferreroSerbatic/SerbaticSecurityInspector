@@ -25,9 +25,11 @@ Herramienta web de auditoría de seguridad de código. **La propia aplicación e
 - Python 3.11+
 - API key de un endpoint LLM **OpenAI-compatible** (el cliente usa `POST {base}/chat/completions`; para el modelo Qwen es obligatorio `enable_thinking: false`, que el cliente ya manda)
 
-## Quickstart (3 terminales)
+## Quickstart (1 terminal)
 
-**1. Backend (motor de análisis, puerto 8000)**
+**Setup de primera vez**
+
+Backend (motor de análisis, puerto 8000): crea el venv e instala las dependencias:
 
 ```bash
 cd backend
@@ -47,26 +49,46 @@ LLM_MODEL=nombre-del-modelo
 LLM_CONCURRENCY=3
 ```
 
+Dependencias de los frontends (raíz y web de ejemplo):
+
 ```bash
+npm install
+cd samples/miniapp
+npm install
+cd ..
+```
+
+**Arranque y parada**
+
+```bash
+.\scripts\start-all.ps1     # arranca backend :8000 + front :5173 + miniapp :3000 (los que no estén)
+.\scripts\stop-all.ps1      # para las 3 (mata por puerto)
+```
+
+Abre http://localhost:5173: la app detecta el backend y te deja elegir **miniapp** (el proyecto de ejemplo) para auditoriarlo de verdad. Al terminar, cada hallazgo del resumen lleva un enlace **«🔎 ver en la demo»** que abre la sección de esa vulnerabilidad en http://localhost:3000.
+
+### Opción avanzada: 3 terminales
+
+Si prefieres lanzar cada app a mano:
+
+**1. Backend (puerto 8000)**
+
+```bash
+cd backend
 .venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
 ```
 
 **2. Frontend (puerto 5173)**
 
 ```bash
-npm install
 npm run dev        # http://localhost:5173 (proxy /api → :8000)
 ```
 
 **3. Opcional — web de ejemplo ejecutable (puerto 3000)**
 
 ```bash
-cd samples/miniapp
-npm install
-npm start          # http://localhost:3000 → índice de las 10 vulnerabilidades con cómo probar cada una
+npm --prefix samples/miniapp start   # http://localhost:3000
 ```
-
-Abre http://localhost:5173: la app detecta el backend y te deja elegir **miniapp** (el proyecto de ejemplo) para auditoriarlo de verdad. Al terminar, cada hallazgo del resumen lleva un enlace **«🔎 ver en la demo»** que abre la sección de esa vulnerabilidad en http://localhost:3000.
 
 ## Proyecto de ejemplo: `samples/miniapp`
 

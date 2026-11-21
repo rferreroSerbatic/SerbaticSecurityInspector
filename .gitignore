@@ -11,3 +11,6 @@ backend/.env
 samples/dvwa/
 samples/miniapp/node_modules/
 workspace/
+
+# logs de los scripts de arranque
+.tmp/
