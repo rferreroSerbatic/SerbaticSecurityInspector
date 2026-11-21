@@ -121,3 +121,25 @@ test('carpeta vacía (0 archivos) no selecciona nada', () => {
   expect(screen.queryByText(/carpeta seleccionada/i)).not.toBeInTheDocument()
   expect(continueBtn()).toBeDisabled()
 })
+
+// --- Task 7: modo live (proyectos reales del backend) ---
+const PROJECTS = [
+  { id: 'miniapp', name: 'miniapp', path: 'C:/samples/miniapp', files: 12, lines: 340 },
+  { id: 'dvwa', name: 'dvwa', path: 'C:/samples/dvwa', files: 88, lines: 4200 },
+]
+
+test('modo live: lista real, sin picker ni git', () => {
+  const onContinue = vi.fn()
+  const { queryByText } = render(<SourceScreen projects={PROJECTS} onBack={() => {}} onContinue={onContinue} />)
+  expect(queryByText('SELECCIONAR CARPETA')).toBeNull()
+  expect(queryByText('Repositorio git')).toBeNull()
+  expect(queryByText('12 archivos')).toBeTruthy()
+  fireEvent.click(screen.getByRole('radio', { name: /miniapp/ }))
+  fireEvent.click(screen.getByText('CONTINUAR ▸'))
+  expect(onContinue).toHaveBeenCalledWith({ kind: 'folder', label: 'miniapp', value: 'miniapp' })
+})
+
+test('modo live: nota de Fase 2b', () => {
+  const { getByText } = render(<SourceScreen projects={PROJECTS} onBack={() => {}} onContinue={() => {}} />)
+  expect(getByText(/Fase 2b/)).toBeTruthy()
+})

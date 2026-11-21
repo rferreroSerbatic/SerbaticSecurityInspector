@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useState } from 'react'
 import { createMockAnalysisService } from './services/mockAnalysisService'
-import type { AnalysisService } from './types'
+import { createLiveAnalysisService } from './services/liveAnalysisService'
+import type { AnalysisService, ProjectInfo } from './types'
 import { useAnalysis } from './state/useAnalysis'
 import { AppShell } from './components/layout/AppShell'
 import { HomeScreen } from './components/home/HomeScreen'
@@ -9,18 +11,95 @@ import { ProgressScreen } from './components/progress/ProgressScreen'
 import { SummaryScreen } from './components/summary/SummaryScreen'
 import { ScopeModal } from './components/scope/ScopeModal'
 
+/** Estado de la autodetección del backend (solo sin props). */
+type Detection = 'loading' | 'live' | 'mock'
+
 /**
- * Cableado completo del flujo de auditoría (Fase 1): useAnalysis es la única
- * fuente de estado y AppShell(step) rodea cada pantalla según flow.step.
- * `service` por defecto es el mock (5500 ms/agente, tick 250 ms).
+ * Cableado completo del flujo de auditoría: useAnalysis es la única fuente de
+ * estado y AppShell(step) rodea cada pantalla según flow.step.
+ *
+ * Modos:
+ * - `service` → comportamiento exacto de Fase 1 (mock por defecto).
+ * - `projects` (array) → modo live directo (lo usan los tests E2E).
+ * - Sin props (uso real) → autodetección: `GET /api/health` (timeout 1500 ms)
+ *   y, si ok, `GET /api/projects` → modo live; cualquier fallo → modo mock.
+ *   Mientras no resuelve: «CONECTANDO…».
  */
-export default function App({ service = createMockAnalysisService() }: { service?: AnalysisService }) {
-  const flow = useAnalysis(service)
+export default function App({
+  service,
+  projects,
+}: {
+  service?: AnalysisService
+  projects?: ProjectInfo[] | null
+}) {
+  const [detection, setDetection] = useState<Detection>('loading')
+  const [detectedProjects, setDetectedProjects] = useState<ProjectInfo[] | null>(null)
+
+  // Modo live: array de proyectos explícito (prop directa o detectado).
+  const liveProjects: ProjectInfo[] | null =
+    service !== undefined
+      ? null
+      : projects !== undefined && projects !== null
+        ? projects
+        : detection === 'live'
+          ? detectedProjects
+          : null
+  const inLive = liveProjects !== null
+  const autoDetect = service === undefined && (projects === undefined || projects === null)
+
+  // Autodetección al montar (solo sin props): health → proyectos, o mock.
+  useEffect(() => {
+    if (!autoDetect) return
+    let disposed = false
+    fetch('/api/health', { signal: AbortSignal.timeout(1500) })
+      .then(res => {
+        if (!res.ok) throw new Error(`health: ${res.status}`)
+        return fetch('/api/projects', { signal: AbortSignal.timeout(1500) })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error(`projects: ${res.status}`)
+        return res.json() as Promise<ProjectInfo[]>
+      })
+      .then(list => {
+        if (disposed) return
+        setDetectedProjects(list)
+        setDetection('live')
+      })
+      .catch(() => {
+        if (disposed) return
+        setDetection('mock')
+      })
+    return () => {
+      disposed = true
+    }
+  }, [autoDetect])
+
+  // Una instancia del servicio live por fase live (directa o detectada).
+  const liveService = useMemo(
+    () => (inLive ? createLiveAnalysisService() : null),
+    [inLive],
+  )
+
+  const flow = useAnalysis(service ?? liveService ?? createMockAnalysisService())
+
+  if (autoDetect && detection === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center font-mono text-xs tracking-widest text-ink-dim">
+        CONECTANDO…
+      </div>
+    )
+  }
 
   const screen = (() => {
     switch (flow.step) {
       case 'source':
-        return <SourceScreen onBack={flow.backToHome} onContinue={flow.setSource} />
+        return (
+          <SourceScreen
+            projects={liveProjects ?? undefined}
+            onBack={flow.backToHome}
+            onContinue={flow.setSource}
+          />
+        )
       case 'vulns':
         return (
           <VulnSelectScreen

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { NeonButton } from '../ui/NeonButton'
 import type { ChangeEvent } from 'react'
-import type { Source } from '../../types'
+import type { ProjectInfo, Source } from '../../types'
 
 declare module 'react' {
   interface InputHTMLAttributes<T> {
@@ -26,20 +26,31 @@ function gitShortLabel(url: string): string {
 export function SourceScreen({
   onBack,
   onContinue,
+  projects,
 }: {
   onBack: () => void
   onContinue: (s: Source) => void
+  /** Modo live (Fase 2a): proyectos reales del backend. `undefined` → modo mock. */
+  projects?: ProjectInfo[]
 }) {
+  const live = projects !== undefined
   const [tab, setTab] = useState<'folder' | 'git'>('folder')
   const [selected, setSelected] = useState<number | null>(null)
   const [gitUrl, setGitUrl] = useState('')
   const [picked, setPicked] = useState<{ name: string; fileCount: number } | null>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
-  const canContinue = tab === 'folder' ? selected !== null || picked !== null : isValidGitUrl(gitUrl)
+  const canContinue = live
+    ? selected !== null
+    : tab === 'folder'
+      ? selected !== null || picked !== null
+      : isValidGitUrl(gitUrl)
 
   const handleContinue = () => {
-    if (tab === 'folder' && picked !== null) {
+    if (live && selected !== null) {
+      const p = projects[selected]
+      onContinue({ kind: 'folder', label: p.name, value: p.id })
+    } else if (tab === 'folder' && picked !== null) {
       onContinue({ kind: 'folder', label: picked.name, value: picked.name })
     } else if (tab === 'folder' && selected !== null) {
       const p = MOCK_PROJECTS[selected]
@@ -77,21 +88,12 @@ export function SourceScreen({
           Elige la fuente de código
         </h1>
 
-        <div role="tablist" aria-label="Tipo de fuente" className="mt-8 flex gap-2">
-          <button type="button" role="tab" aria-selected={tab === 'folder'} onClick={() => setTab('folder')} className={tabClasses(tab === 'folder')}>
-            Carpeta local
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'git'} onClick={() => setTab('git')} className={tabClasses(tab === 'git')}>
-            Repositorio git
-          </button>
-        </div>
-
-        {tab === 'folder' ? (
+        {live ? (
           <>
-            <div role="radiogroup" aria-label="Proyectos disponibles" className="mt-4 flex flex-col gap-2">
-              {MOCK_PROJECTS.map((p, i) => (
+            <div role="radiogroup" aria-label="Proyectos disponibles" className="mt-8 flex flex-col gap-2">
+              {projects.map((p, i) => (
                 <button
-                  key={p.name}
+                  key={p.id}
                   type="button"
                   role="radio"
                   aria-checked={selected === i}
@@ -105,53 +107,96 @@ export function SourceScreen({
                   <span className="text-sm font-bold text-ink">
                     <span className="text-neon-cyan">📁 {p.name}</span>
                   </span>
-                  <span className="font-mono text-xs text-ink-dim">{p.path}</span>
+                  <span className="flex items-center gap-3">
+                    <span className="font-mono text-xs text-ink-dim">{p.path}</span>
+                    <span className="font-mono text-xs text-ink-faint">{p.files} archivos</span>
+                  </span>
                 </button>
               ))}
             </div>
-            <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] text-ink-faint">
-              <span className="h-px flex-1 bg-ink-faint/40" />
-              o bien
-              <span className="h-px flex-1 bg-ink-faint/40" />
-            </div>
-            <div>
-              <NeonButton variant="outline" onClick={() => folderInputRef.current?.click()}>
-                📂 SELECCIONAR CARPETA
-              </NeonButton>
-              <input
-                ref={folderInputRef}
-                type="file"
-                multiple
-                webkitdirectory=""
-                className="hidden"
-                aria-label="Seleccionar carpeta local"
-                onChange={handleFolderChange}
-              />
-              {picked && (
-                <p className="mt-3 font-mono text-xs text-neon-cyan">
-                  Carpeta seleccionada: {picked.name} ({picked.fileCount} archivos)
-                </p>
-              )}
-            </div>
+            <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink-faint">
+              Fase 2b: carpeta local y repositorio git
+            </p>
           </>
         ) : (
-          <div className="mt-4">
-            <label htmlFor="git-url" className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-ink-dim">
-              URL del repositorio
-            </label>
-            <input
-              id="git-url"
-              type="url"
-              placeholder="https://github.com/org/repo"
-              value={gitUrl}
-              onChange={(e) => setGitUrl(e.target.value)}
-              className="w-full border border-ink-faint bg-panel px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(0,229,255,0.25)] focus:outline-none"
-            />
-            <p className="mt-2 text-xs text-ink-dim">
-              Acepta <span className="font-mono text-ink">https://…</span> o{' '}
-              <span className="font-mono text-ink">git@usuario:org/repo.git</span>.
-            </p>
-          </div>
+          <>
+            <div role="tablist" aria-label="Tipo de fuente" className="mt-8 flex gap-2">
+              <button type="button" role="tab" aria-selected={tab === 'folder'} onClick={() => setTab('folder')} className={tabClasses(tab === 'folder')}>
+                Carpeta local
+              </button>
+              <button type="button" role="tab" aria-selected={tab === 'git'} onClick={() => setTab('git')} className={tabClasses(tab === 'git')}>
+                Repositorio git
+              </button>
+            </div>
+
+            {tab === 'folder' ? (
+              <>
+                <div role="radiogroup" aria-label="Proyectos disponibles" className="mt-4 flex flex-col gap-2">
+                  {MOCK_PROJECTS.map((p, i) => (
+                    <button
+                      key={p.name}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected === i}
+                      onClick={() => setSelected(i)}
+                      className={`flex items-center justify-between gap-4 border px-4 py-3 text-left transition-all duration-200 ${
+                        selected === i
+                          ? 'border-neon-magenta bg-neon-magenta/5 shadow-[0_0_12px_rgba(255,45,149,0.2)]'
+                          : 'border-ink-faint opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <span className="text-sm font-bold text-ink">
+                        <span className="text-neon-cyan">📁 {p.name}</span>
+                      </span>
+                      <span className="font-mono text-xs text-ink-dim">{p.path}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] text-ink-faint">
+                  <span className="h-px flex-1 bg-ink-faint/40" />
+                  o bien
+                  <span className="h-px flex-1 bg-ink-faint/40" />
+                </div>
+                <div>
+                  <NeonButton variant="outline" onClick={() => folderInputRef.current?.click()}>
+                    📂 SELECCIONAR CARPETA
+                  </NeonButton>
+                  <input
+                    ref={folderInputRef}
+                    type="file"
+                    multiple
+                    webkitdirectory=""
+                    className="hidden"
+                    aria-label="Seleccionar carpeta local"
+                    onChange={handleFolderChange}
+                  />
+                  {picked && (
+                    <p className="mt-3 font-mono text-xs text-neon-cyan">
+                      Carpeta seleccionada: {picked.name} ({picked.fileCount} archivos)
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="mt-4">
+                <label htmlFor="git-url" className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-ink-dim">
+                  URL del repositorio
+                </label>
+                <input
+                  id="git-url"
+                  type="url"
+                  placeholder="https://github.com/org/repo"
+                  value={gitUrl}
+                  onChange={(e) => setGitUrl(e.target.value)}
+                  className="w-full border border-ink-faint bg-panel px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(0,229,255,0.25)] focus:outline-none"
+                />
+                <p className="mt-2 text-xs text-ink-dim">
+                  Acepta <span className="font-mono text-ink">https://…</span> o{' '}
+                  <span className="font-mono text-ink">git@usuario:org/repo.git</span>.
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         <div className="mt-8 flex items-center justify-between gap-4">

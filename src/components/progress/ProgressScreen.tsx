@@ -28,6 +28,12 @@ export function ProgressScreen({
           </span>
         </div>
 
+        {analysis.status === 'error' && (
+          <div className="mt-6 border border-neon-magenta/60 bg-neon-magenta/10 px-4 py-3 shadow-[0_0_12px_rgba(255,45,149,0.25)]">
+            <p className="text-sm text-ink">⚠ {analysis.error}</p>
+          </div>
+        )}
+
         <div className="mt-8">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim">

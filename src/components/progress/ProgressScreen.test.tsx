@@ -141,3 +141,10 @@ test('«← Volver» llama a onBack', () => {
   fireEvent.click(screen.getByRole('button', { name: /← volver/i }))
   expect(onBack).toHaveBeenCalled()
 })
+
+// --- Task 7: banner de error del análisis ---
+test('banner de error cuando el análisis falla', () => {
+  const analysis: AnalysisProgress = { status: 'error', error: 'Error 500 del LLM', globalProgress: 10, agents: [], logLines: [], findings: [] }
+  const { getByText } = render(<ProgressScreen analysis={analysis} onBack={() => {}} />)
+  expect(getByText(/Error 500 del LLM/)).toBeTruthy()
+})

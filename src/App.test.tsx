@@ -60,3 +60,28 @@ test('volver desde progreso lleva a vulnerabilidades y cancela el análisis', as
   expect(screen.getByRole('checkbox', { name: /inyección/i })).toBeInTheDocument()
   expect(onCancel).toHaveBeenCalled()
 })
+
+// --- Task 7: autodetección de backend (modo live) ---
+afterEach(() => vi.unstubAllGlobals())
+
+test('autodetección: backend ok → modo live', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+    url === '/api/health'
+      ? new Response('ok', { status: 200 })
+      : new Response(JSON.stringify([{ id: 'miniapp', name: 'miniapp', path: '/x', files: 12, lines: 340 }]), { status: 200 })))
+  const { findByText } = render(<App />)
+  expect(await findByText(/FUENTE|ANALIZAR/i)).toBeTruthy()
+  expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/health')
+})
+
+test('autodetección: backend caído → modo mock', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down') }))
+  const { findByText } = render(<App />)
+  expect(await findByText('ANALIZAR APLICACIÓN')).toBeTruthy()
+})
+
+test('loading mientras la detección no resuelve', () => {
+  vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+  const { getByText } = render(<App />)
+  expect(getByText('CONECTANDO…')).toBeTruthy()
+})

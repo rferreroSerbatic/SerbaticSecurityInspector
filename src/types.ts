@@ -49,6 +49,14 @@ export interface AnalysisProgress {
   meta?: { files: number; lines: number; durationMin: number }
 }
 
+export interface ProjectInfo {
+  id: string
+  name: string
+  path: string
+  files: number
+  lines: number
+}
+
 export type SourceKind = 'folder' | 'git'
 
 export interface Source {
