@@ -2,17 +2,26 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AppShell } from './AppShell'
 import { StepIndicator } from './StepIndicator'
+import indexHtml from '../../../index.html?raw'
 
 afterEach(cleanup)
 
-test('renderiza la marca SERBATIC e INSPECTOR', () => {
+test('renderiza el logo y el título completo SERBATIC SECURITY INSPECTOR', () => {
   render(
     <AppShell step="source" onGoSource={() => {}} onGoVulns={() => {}}>
       <p>contenido</p>
     </AppShell>,
   )
+  const logo = screen.getByAltText('Serbatic')
+  expect(logo.tagName).toBe('IMG')
+  expect(logo).toHaveAttribute('src')
   expect(screen.getByText('SERBATIC')).toBeInTheDocument()
+  expect(screen.getByText('SECURITY')).toBeInTheDocument()
   expect(screen.getByText('INSPECTOR')).toBeInTheDocument()
+})
+
+test('la pestaña del navegador lleva el título completo (index.html)', () => {
+  expect(indexHtml).toContain('<title>Serbatic Security Inspector</title>')
 })
 
 test('renderiza una única capa ambiental fija a toda la viewport', () => {
