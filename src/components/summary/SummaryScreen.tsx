@@ -30,6 +30,7 @@ export function SummaryScreen({
   onNewAudit,
   onBack,
   demoBaseUrl,
+  projectName,
 }: {
   analysis: AnalysisProgress
   selectedFindingIds: string[]
@@ -39,6 +40,8 @@ export function SummaryScreen({
   onBack: () => void
   /** Base de la web de ejemplo ejecutable (solo proyectos de ejemplo con demo). */
   demoBaseUrl?: string
+  /** Nombre del proyecto analizado (cabecera del informe PDF). */
+  projectName?: string
 }) {
   const { agents, findings, meta } = analysis
   const total = findings.length
@@ -51,9 +54,42 @@ export function SummaryScreen({
   const [expandedIds, setExpandedIds] = useState<string[]>(
     defaultExpanded ? [defaultExpanded.id] : [],
   )
+  const [reportBusy, setReportBusy] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   const toggleExpand = (id: string) =>
     setExpandedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
+
+  // Informe PDF completo: el backend (Task 6) genera el documento y el front
+  // lo descarga (mismo patrón de blob que el PDF del alcance en ScopeModal).
+  const downloadReport = async () => {
+    setReportBusy(true)
+    setReportError(null)
+    try {
+      const res = await fetch('/api/reports/full-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: projectName ?? 'Proyecto',
+          profile: analysis.profile ?? {},
+          meta: analysis.meta ?? {},
+          findings,
+        }),
+      })
+      if (!res.ok) throw new Error('bad status')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `informe-${(projectName ?? 'proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'proyecto'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setReportError('No se pudo generar el informe (¿backend caído?)')
+    } finally {
+      setReportBusy(false)
+    }
+  }
 
   return (
     <section className="relative flex min-h-[70vh] flex-col justify-center">
@@ -148,11 +184,19 @@ export function SummaryScreen({
             <NeonButton variant="ghost" onClick={onNewAudit}>
               NUEVA AUDITORÍA
             </NeonButton>
+            <NeonButton variant="ghost" onClick={downloadReport} disabled={total === 0 || reportBusy}>
+              {reportBusy ? 'GENERANDO…' : 'INFORME PDF ▸'}
+            </NeonButton>
             <NeonButton onClick={onGenerateScope} disabled={selectedFindingIds.length === 0}>
               GENERAR ALCANCE DE MEJORA ▸
             </NeonButton>
           </div>
         </footer>
+        {reportError && (
+          <p role="alert" className="mt-3 text-right font-mono text-xs font-bold tracking-wide text-neon-magenta">
+            {reportError}
+          </p>
+        )}
       </div>
     </section>
   )

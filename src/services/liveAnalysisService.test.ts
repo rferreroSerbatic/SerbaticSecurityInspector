@@ -62,7 +62,7 @@ test('happy path: run:start → run:done', async () => {
   const es = FakeEventSource.instances[0]
   expect(es.url).toBe('/api/runs/r1/events')
   es.emit({ type: 'run:start', t: 0, vulnIds: ['A01'], model: 'qwen3.8-fp8' })
-  es.emit({ type: 'profile:done', t: 1, profile: {} })
+  es.emit({ type: 'profile:done', t: 1, profile: { stack: 'node', framework: 'express' } })
   es.emit({ type: 'agent:start', t: 1, vulnId: 'A01' })
   es.emit({ type: 'log', t: 2, vulnId: 'A01', severity: 'high', message: '[ALTO] routes/admin.js:5 — Admin sin auth' })
   es.emit({ type: 'agent:done', t: 3, vulnId: 'A01', findingsCount: 1, criticalCount: 0, tokens: 42, tps: 38.5 })
@@ -91,6 +91,8 @@ test('happy path: run:start → run:done', async () => {
   // agent:done (38.5) se sustituye por la media de run:done (41.2).
   expect(last.model).toBe('qwen3.8-fp8')
   expect(last.tps).toBe(41.2)
+  // profile: el evento profile:done lleva el perfil del proyecto (informe PDF, Task 8).
+  expect(last.profile).toEqual({ stack: 'node', framework: 'express' })
 })
 
 test('409 → estado error con mensaje', async () => {

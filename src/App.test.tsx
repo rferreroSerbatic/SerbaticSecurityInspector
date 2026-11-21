@@ -80,6 +80,21 @@ test('autodetección: backend caído → modo mock', async () => {
   expect(await findByText('ANALIZAR APLICACIÓN')).toBeTruthy()
 })
 
+test('autodetección: /api/projects con 0 proyectos → modo mock (M2)', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+    url === '/api/health'
+      ? new Response('ok', { status: 200 })
+      : new Response(JSON.stringify([]), { status: 200 })))
+  render(<App />)
+  const analizar = await screen.findByRole('button', { name: /analizar aplicación/i })
+  fireEvent.click(analizar)
+
+  // Modo mock: tab de carpeta local + proyectos demo, no la lista live (que quedaría vacía).
+  expect(await screen.findByRole('tab', { name: /carpeta local/i })).toBeTruthy()
+  expect((await screen.findAllByText(/webapp-acme/)).length).toBeGreaterThanOrEqual(1)
+  expect(screen.queryByText(/AUDITAR UN PROYECTO PROPIO/i)).not.toBeInTheDocument()
+})
+
 test('loading mientras la detección no resuelve', () => {
   vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
   const { getByText } = render(<App />)

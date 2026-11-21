@@ -59,6 +59,14 @@ export function FindingCard({
           <span className="shrink-0 font-mono text-[11px] font-bold tracking-wider text-neon-cyan">
             {vuln.id} · {vuln.name.toUpperCase()}
           </span>
+          {finding.alsoCategories && finding.alsoCategories.length > 0 && (
+            <span
+              className="shrink-0 font-mono text-[10px] tracking-wide text-neon-cyan"
+              title={`También reportado por: ${finding.alsoCategories.join(', ')}`}
+            >
+              +{finding.alsoCategories.length}
+            </span>
+          )}
           <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">
             {finding.title}
           </span>

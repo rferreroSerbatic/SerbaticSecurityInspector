@@ -18,6 +18,8 @@ export interface Finding {
   exploit: string
   consequences: string
   solution: string
+  /** Otras categorías OWASP que reportaron este mismo hallazgo (desduplicación, Fase 2b). */
+  alsoCategories?: string[]
 }
 
 export type AgentStatus = 'pending' | 'running' | 'done'
@@ -58,6 +60,8 @@ export interface AnalysisProgress {
     totalTokens?: number
     avgTps?: number
   }
+  /** Solo modo live: perfil del proyecto del agente perfilador (informe PDF). */
+  profile?: Record<string, unknown>
 }
 
 export interface ProjectInfo {

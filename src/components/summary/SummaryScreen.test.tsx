@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { AnalysisProgress, Finding } from '../../types'
 import { SummaryScreen } from './SummaryScreen'
 
@@ -78,6 +78,7 @@ const renderScreen = (
     onBack?: () => void
   } = {},
   demoBaseUrl?: string,
+  projectName?: string,
 ) =>
   render(
     <SummaryScreen
@@ -88,6 +89,7 @@ const renderScreen = (
       onNewAudit={handlers.onNewAudit ?? (() => {})}
       onBack={handlers.onBack ?? (() => {})}
       demoBaseUrl={demoBaseUrl}
+      projectName={projectName}
     />,
   )
 
@@ -281,4 +283,72 @@ test('GENERAR ALCANCE llama a onGenerateScope y NUEVA AUDITORÍA llama a onNewAu
 
   fireEvent.click(screen.getByRole('button', { name: /nueva auditoría/i }))
   expect(onNewAudit).toHaveBeenCalledOnce()
+})
+
+// --- Task 8: informe PDF completo (endpoint de la Task 6) + tag de duplicados ---
+afterEach(() => vi.unstubAllGlobals())
+
+test('INFORME PDF: POST a /api/reports/full-pdf con {projectName, profile, meta, findings} y descarga', async () => {
+  const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+    new Response('%PDF-1.4 fake', { status: 200 }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  const createObjectURL = vi.fn(() => 'blob:mock')
+  URL.createObjectURL = createObjectURL
+  URL.revokeObjectURL = vi.fn()
+
+  const withProfile: AnalysisProgress = {
+    ...base,
+    profile: { stack: 'node', framework: 'express' },
+  }
+  renderScreen(withProfile, [], {}, undefined, 'Mi Proyecto')
+
+  // Timers falsos: jsdom no implementa `download` y tras el click del ancla
+  // programaría una navegación «no implementada» vía setTimeout (mismo
+  // patrón que ScopeModal.test con el PDF del alcance).
+  vi.useFakeTimers()
+  fireEvent.click(screen.getByRole('button', { name: /informe pdf/i }))
+  await act(async () => {})
+  vi.useRealTimers()
+
+  expect(fetchMock).toHaveBeenCalledOnce()
+  const [url, init] = fetchMock.mock.calls[0]
+  expect(url).toBe('/api/reports/full-pdf')
+  expect(init?.method).toBe('POST')
+  expect(JSON.parse(init?.body as string)).toEqual({
+    projectName: 'Mi Proyecto',
+    profile: { stack: 'node', framework: 'express' },
+    meta: base.meta,
+    findings,
+  })
+  expect(createObjectURL).toHaveBeenCalled()
+})
+
+test('INFORME PDF está deshabilitado sin hallazgos', () => {
+  const empty: AnalysisProgress = { ...base, findings: [] }
+  renderScreen(empty)
+  expect(screen.getByRole('button', { name: /informe pdf/i })).toBeDisabled()
+})
+
+test('INFORME PDF muestra el error sin lanzar cuando el backend devuelve 500', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })))
+  renderScreen()
+
+  fireEvent.click(screen.getByRole('button', { name: /informe pdf/i }))
+  await act(async () => {})
+
+  expect(screen.getByText('No se pudo generar el informe (¿backend caído?)')).toBeInTheDocument()
+})
+
+test('duplicados entre categorías: tag +N con title listando las demás categorías', () => {
+  const duped: AnalysisProgress = {
+    ...base,
+    findings: findings.map(f =>
+      f.id === 'A02-1' ? { ...f, alsoCategories: ['A05', 'A06'] } : f,
+    ),
+  }
+  renderScreen(duped)
+
+  const tag = screen.getByText('+2')
+  expect(tag).toHaveAttribute('title', 'También reportado por: A05, A06')
 })

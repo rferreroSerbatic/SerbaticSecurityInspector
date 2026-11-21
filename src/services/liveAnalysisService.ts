@@ -26,6 +26,7 @@ interface SseEvent {
   tokens?: number
   tps?: number
   findings?: Finding[]
+  profile?: Record<string, unknown>
   meta?: {
     files: number
     lines: number
@@ -127,7 +128,10 @@ export function createLiveAnalysisService(opts: LiveOptions = {}): AnalysisServi
             }
             break
           case 'profile:done':
-            // Se ignora en el front (el log del perfil llega como evento 'log').
+            // Perfil del proyecto (lo usa el informe PDF, Task 8); el log del
+            // perfil llega aparte como eventos 'log'.
+            state.profile = ev.profile ?? {}
+            emit()
             break
           case 'agent:start': {
             const a = state.agents.find(x => x.vulnId === ev.vulnId)

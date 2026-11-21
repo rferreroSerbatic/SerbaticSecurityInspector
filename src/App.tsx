@@ -75,6 +75,8 @@ export default function App({
       })
       .then(list => {
         if (disposed) return
+        // M2: 0 proyectos (o JSON no-array) → modo mock, no callejón sin salida live.
+        if (!Array.isArray(list) || list.length === 0) throw new Error('sin proyectos')
         setDetectedProjects(list)
         setDetection('live')
       })
@@ -136,6 +138,7 @@ export default function App({
             onNewAudit={flow.newAudit}
             onBack={flow.goVulns}
             demoBaseUrl={inLive ? SAMPLE_DEMO_URLS[flow.source?.value ?? ''] : undefined}
+            projectName={flow.source?.label ?? 'Proyecto'}
           />
         )
       default:
