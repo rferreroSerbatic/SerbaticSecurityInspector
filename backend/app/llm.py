@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass
+
 import httpx
 
 
 class LLMError(Exception):
     """Fallo al llamar al LLM (error de red, respuesta no-2xx o respuesta malformada)."""
+
+
+@dataclass
+class ChatResult:
+    """Respuesta del LLM con su uso de tokens (para mostrar velocidad en la UI)."""
+
+    content: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    elapsed_s: float = 0.0
+
+    @property
+    def tps(self) -> float:
+        """Tokens generados por segundo (0 si no hay uso ni tiempo medido)."""
+        if self.elapsed_s <= 0 or self.completion_tokens <= 0:
+            return 0.0
+        return self.completion_tokens / self.elapsed_s
 
 
 class LLMClient:
@@ -31,7 +51,11 @@ class LLMClient:
             headers={"Authorization": f"Bearer {api_key}"},
         )
 
-    async def chat(self, system: str, user: str, max_tokens: int = 8000) -> str:
+    @property
+    def model(self) -> str:
+        return self._model
+
+    async def chat(self, system: str, user: str, max_tokens: int = 8000) -> ChatResult:
         payload = {
             "model": self._model,
             "messages": [
@@ -42,6 +66,7 @@ class LLMClient:
             "max_tokens": max_tokens,
             "chat_template_kwargs": {"enable_thinking": False},
         }
+        t0 = time.monotonic()
         try:
             response = await self._client.post("/chat/completions", json=payload)
         except httpx.HTTPError as exc:
@@ -51,11 +76,18 @@ class LLMClient:
         try:
             data = response.json()
             content = data["choices"][0]["message"]["content"]
+            usage = data.get("usage") or {}
+            result = ChatResult(
+                content=content,
+                prompt_tokens=int(usage.get("prompt_tokens") or 0),
+                completion_tokens=int(usage.get("completion_tokens") or 0),
+                elapsed_s=time.monotonic() - t0,
+            )
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"respuesta del LLM malformada: {exc}") from exc
-        if not isinstance(content, str):
+        if not isinstance(result.content, str):
             raise LLMError("el LLM devolvió un 'content' no textual")
-        return content
+        return result
 
     async def close(self) -> None:
         await self._client.aclose()

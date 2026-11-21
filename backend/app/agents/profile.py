@@ -127,7 +127,7 @@ async def run_profile(llm: LLMClient, scan: ScanResult, project_name: str) -> tu
     """Devuelve ``(profile, used_fallback)``; usa el fallback si el LLM falla o no responde con JSON."""
     system, user = build_profile_prompt(scan, project_name)
     try:
-        raw = await llm.chat(system, user)
+        raw = (await llm.chat(system, user)).content
     except LLMError:
         return fallback_profile(scan, project_name), True
     profile = parse_profile(raw)

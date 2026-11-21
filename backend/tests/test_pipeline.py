@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 
-from app.llm import LLMError
+from app.llm import ChatResult, LLMError
 from app.pipeline import run_pipeline
 from app.runs import RunRegistry, RunStatus
 from app.scanner import CodeFile, MAX_TOTAL_CHARS, ScanResult
@@ -63,24 +63,26 @@ class FakeVulnLLM:
     si no, extrae la categoría de la línea 'Categoría: A0X' del user.
     Implementa `close()` porque la API lo llama en `finally`."""
 
+    # usage fijo y determinista: perfil 10 tokens/0,1 s · agente 5 tokens/0,2 s (tps 25)
     def __init__(self, canned_by_vuln, profile_raw, fail_vulns=(), delay=0.0):
         self.canned_by_vuln = canned_by_vuln
         self.profile_raw = profile_raw
         self.fail_vulns = set(fail_vulns)
         self.delay = delay
         self.systems = []  # registro de los `system` recibidos (add-on: contrato del perfilador)
+        self.model = "qwen3.8-fp8"
 
     async def chat(self, system, user, max_tokens=8000):
         self.systems.append(system)
         if "perfilador" in system:
-            return self.profile_raw
+            return ChatResult(content=self.profile_raw, prompt_tokens=100, completion_tokens=10, elapsed_s=0.1)
         m = re.search(r"Categoría: (A\d+)", user)
         v = m.group(1)
         if v in self.fail_vulns:
             raise LLMError("boom de prueba")
         if self.delay:
             await asyncio.sleep(self.delay)
-        return self.canned_by_vuln[v]
+        return ChatResult(content=self.canned_by_vuln[v], prompt_tokens=100, completion_tokens=5, elapsed_s=0.2)
 
     async def close(self):
         pass
@@ -104,6 +106,15 @@ def test_pipeline_full_sequence():
     assert run.status == RunStatus.DONE
     # Add-on: el system de la llamada de perfil contiene la frase load-bearing
     assert any("agente perfilador" in s for s in llm.systems)
+    # Modelo + velocidad visibles (run:start, agent:done y meta de run:done)
+    start = run.events[0]
+    assert start["type"] == "run:start" and start["model"] == "qwen3.8-fp8"
+    done = {e["vulnId"]: e for e in run.events if e["type"] == "agent:done"}
+    assert done["A01"]["tokens"] == 5 and done["A01"]["tps"] == 25.0
+    final = run.events[-1]
+    assert final["meta"]["model"] == "qwen3.8-fp8"
+    assert final["meta"]["totalTokens"] == 10  # A01 + A03 (el perfil no cuenta)
+    assert final["meta"]["avgTps"] == 25.0
 
 
 def test_pipeline_llm_error_emits_error_and_finishes():

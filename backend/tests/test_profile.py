@@ -9,6 +9,7 @@ from app.agents.profile import (
     parse_profile,
     run_profile,
 )
+from app.llm import ChatResult
 from app.scanner import CodeFile, ScanResult
 
 
@@ -16,10 +17,11 @@ class FakeProfileLLM:
     def __init__(self, raw):
         self.raw = raw
         self.calls = 0
+        self.model = "qwen3.8-fp8"
 
     async def chat(self, system, user, max_tokens=8000):
         self.calls += 1
-        return self.raw
+        return ChatResult(content=self.raw)
 
 
 @pytest.fixture

@@ -6,11 +6,12 @@ import asyncio
 import json
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_settings
 from app.llm import LLMClient
+from app.pdf_report import build_scope_pdf
 from app.pipeline import ALL_VULN_IDS, run_pipeline
 from app.projects import get_project, list_projects
 from app.runs import TERMINAL, TERMINAL_EVENTS, RunRegistry, RunState
@@ -45,6 +46,12 @@ async def _wrapped(run: RunState, scan: ScanResult, project_name: str, vuln_ids:
 
 @app.get("/api/health")
 def health():
+    return {"status": "ok"}
+
+
+@app.get("/health")
+def health_alias():
+    """Alias sin prefijo /api para comprobación manual directa a :8000."""
     return {"status": "ok"}
 
 
@@ -91,6 +98,21 @@ async def run_events(run_id: str):
             run.subscribers.remove(q)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+class ScopePdfBody(BaseModel):
+    text: str
+    title: str = "Alcance técnico de mejora"
+
+
+@app.post("/api/reports/scope-pdf")
+def scope_pdf(body: ScopePdfBody):
+    """PDF real del texto del alcance (el front lo descarga como attachment)."""
+    return Response(
+        content=build_scope_pdf(body.text, body.title),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="alcance.pdf"'},
+    )
 
 
 @app.post("/api/runs/{run_id}/cancel")

@@ -26,7 +26,8 @@ async def run_pipeline(
 ) -> None:
     """Ejecuta las 2 oleadas y emite los eventos del contrato SSE en ``run``."""
     lines = sum(f.lines for f in scan.files)
-    emit(run, "run:start", projectId=project_name, vulnIds=vuln_ids, files=len(scan.files), lines=lines)
+    emit(run, "run:start", projectId=project_name, vulnIds=vuln_ids, files=len(scan.files), lines=lines,
+         model=llm.model)
 
     # Guarda de tamaño (Fase 2a): nada de proyectos enormes
     if scan.total_chars > MAX_TOTAL_CHARS:
@@ -62,6 +63,10 @@ async def run_pipeline(
 
     sem = asyncio.Semaphore(concurrency)
 
+    # Uso acumulado de las llamadas de agentes (para la velocidad media de run:done).
+    total_tokens = 0
+    total_llm_s = 0.0
+
     async def agent(v: str) -> None:
         async with sem:
             # Guard evaluado al adquirir el semáforo (fix I1 final review): un run puede
@@ -71,17 +76,22 @@ async def run_pipeline(
                 emit(run, "agent:done", vulnId=v, findingsCount=0, criticalCount=0)
                 emit(run, "log", vulnId=v, message="agente cancelado")
                 return
+            nonlocal total_tokens, total_llm_s
             system, user = build_vuln_prompt(v, profile, scan)
             try:
-                raw = await llm.chat(system, user)
+                res = await llm.chat(system, user)
             except LLMError as e:
                 if run.status != RunStatus.ERROR:
                     run.status = RunStatus.ERROR
                     emit(run, "run:error", message=str(e))
                 return
+            # La llamada ya se gastó aunque el resultado se descarte (run terminal en vuelo).
+            total_tokens += res.completion_tokens
+            total_llm_s += res.elapsed_s
             # Si el run ya falló o se canceló (p. ej. supersede) en vuelo: descartar sin emitir
             if run.status in (RunStatus.ERROR, RunStatus.CANCELLING, RunStatus.CANCELLED):
                 return
+            raw = res.content
             raw_findings = parse_findings(raw, v)
             valid = [f for f in raw_findings if validate_finding(f, scan)]
             discarded = len(raw_findings) - len(valid)
@@ -97,7 +107,8 @@ async def run_pipeline(
             if discarded > 0:
                 emit(run, "log", vulnId=v, message=f"descartados {discarded} hallazgo(s) inválido(s)")
             criticals = sum(1 for f in valid if f.get("severity") == "critical")
-            emit(run, "agent:done", vulnId=v, findingsCount=len(valid), criticalCount=criticals)
+            emit(run, "agent:done", vulnId=v, findingsCount=len(valid), criticalCount=criticals,
+                 tokens=res.completion_tokens, tps=round(res.tps, 1))
 
     await asyncio.gather(*(agent(v) for v in ordered))
 
@@ -114,6 +125,9 @@ async def run_pipeline(
                 "files": len(scan.files),
                 "lines": lines,
                 "durationMin": max(1, round((time.time() - run.start_time) / 60)),
+                "model": llm.model,
+                "totalTokens": total_tokens,
+                "avgTps": round(total_tokens / total_llm_s, 1) if total_llm_s > 0 else 0,
             },
         )
         run.status = RunStatus.DONE
