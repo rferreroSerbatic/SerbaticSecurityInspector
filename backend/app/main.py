@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
@@ -13,7 +14,7 @@ from app.config import load_settings
 from app.git_projects import GitCloneError, git_analyze, git_list, register_git
 from app.llm import LLMClient
 from app.local_projects import local_analyze, local_list, register_local, resolve_local
-from app.pdf_report import build_scope_pdf
+from app.pdf_report import build_report_pdf, build_scope_pdf
 from app.pipeline import ALL_VULN_IDS, run_pipeline
 from app.projects import get_project, list_projects
 from app.runs import TERMINAL, TERMINAL_EVENTS, RunRegistry, RunState
@@ -145,6 +146,24 @@ def scope_pdf(body: ScopePdfBody):
         content=build_scope_pdf(body.text, body.title),
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="alcance.pdf"'},
+    )
+
+
+class ReportPdfBody(BaseModel):
+    projectName: str
+    profile: dict
+    meta: dict
+    findings: list[dict]
+
+
+@app.post("/api/reports/full-pdf")
+def full_pdf(body: ReportPdfBody):
+    """Informe PDF completo: portada + perfil + hallazgos por categoría."""
+    slug = re.sub(r"[^a-z0-9]+", "-", body.projectName.lower()).strip("-") or "proyecto"
+    return Response(
+        content=build_report_pdf(body.projectName, body.profile, body.meta, body.findings),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="informe-{slug}.pdf"'},
     )
 
 
