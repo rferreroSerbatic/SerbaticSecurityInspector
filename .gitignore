@@ -4,3 +4,9 @@ dist/
 *.local
 .DS_Store
 npm-debug.log*
+
+# backend
+backend/.venv/
+backend/.env
+samples/dvwa/
+samples/miniapp/node_modules/
