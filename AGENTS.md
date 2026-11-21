@@ -10,10 +10,11 @@ Guía operativa para cualquier agente/sesión que trabaje en este repositorio.
 
 ## Reglas de trabajo
 
-- **Una task a la vez, en orden**, TDD estricto: escribir el test → verlo fallar → implementar mínimo → verlo pasar → `npm run build` limpio → commit + push.
+- **Una task a la vez, en orden**, TDD estricto: escribir el test → verlo fallar → implementar mínimo → verlo pasar.
+- **Comprobaciones reducidas** (pauta del usuario 2026-11-21, las órdenes tardan demasiado): rojo→verde **solo del test de la task** (fichero concreto); la suite completa (`npx vitest run`) y `npm run build` **una sola vez al final de la task**; no re-ejecutar en cada paso ni relanzar en el coordinador lo que el subagente ya verificó con evidencia (comando + output) en su report.
 - **Al terminar una task:** marcarla `- [x]` en la lista «Progreso del plan» de `PROGRESS.md` y actualizar su «Estado actual» (decisiones nuevas al registro).
 - **A media task al agotar contexto:** anotar en `PROGRESS.md` «Tarea en curso» qué falta exactamente.
-- **Commits:** convencionales (`feat:`, `test:`, `chore:`, `docs:`), uno por task, con push.
+- **Commits: pocos y agrupados** (pauta del usuario 2026-11-21): convencionales (`feat:`, `test:`, `chore:`, `docs:`), **uno por task** — la implementación y sus fix rounds de review se **agrupan en el mismo commit** (amendar antes de pushear); push único al terminar la task. Nada de commits separados por fix round ni por bookkeeping.
 - **Ritmo sugerido:** 2–4 tasks por sesión; no intentar la fase completa en una.
 
 ## Stack y restricciones (Fase 1)
