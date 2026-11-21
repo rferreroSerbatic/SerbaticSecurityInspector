@@ -103,7 +103,8 @@ async def analyze(body: AnalyzeBody):
     run = RUNS.start(project.id, vuln_ids)
     if run is None:
         raise HTTPException(status_code=409, detail="Ya hay un análisis en curso")
-    asyncio.create_task(_wrapped(run, scan, project.name, vuln_ids))
+    task = asyncio.create_task(_wrapped(run, scan, project.name, vuln_ids))
+    run.task = task
     return {"runId": run.id}
 
 

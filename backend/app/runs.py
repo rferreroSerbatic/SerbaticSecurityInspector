@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -29,6 +30,7 @@ class RunState:
     findings: list[dict] = field(default_factory=list)
     subscribers: list = field(default_factory=list)  # de asyncio.Queue
     start_time: float = field(default_factory=time.time)
+    task: asyncio.Task | None = None  # task asyncio del _wrapped (para cancelar en vuelo)
 
 
 def emit(run: RunState, etype: str, **payload) -> None:
@@ -52,11 +54,16 @@ class RunRegistry:
         Regla de slot (ruling R3): un run en CANCELLING puede ser suplantado
         (supersede) → se marca CANCELLED al instante y arranca el nuevo.
         """
+        # M5: RUNS.runs no debe crecer sin límite — podar terminales al arrancar
+        for rid in [r for r, st in self.runs.items() if st.status in TERMINAL]:
+            del self.runs[rid]
         active = self.active
         if active is not None and active.status == RunStatus.RUNNING:
             return None
         if active is not None and active.status == RunStatus.CANCELLING:
-            emit(active, "run:cancelled")
+            if active.task is not None:
+                active.task.cancel()
+            emit(active, "run:cancelled", findings=active.findings)
             active.status = RunStatus.CANCELLED
         run = RunState(id=uuid.uuid4().hex[:8], project_id=project_id, vuln_ids=list(vuln_ids))
         self.active = run
@@ -72,6 +79,8 @@ class RunRegistry:
         if run is None or run.status != RunStatus.RUNNING:
             return False
         run.status = RunStatus.CANCELLING
+        if run.task is not None:
+            run.task.cancel()
         return True
 
     def finish(self, run: RunState) -> None:

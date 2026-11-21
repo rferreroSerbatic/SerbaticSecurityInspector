@@ -109,8 +109,40 @@ def test_supersede_after_cancel(monkeypatch, samples_dir):
     with TestClient(app) as c:
         first = c.post("/api/analyze", json={"projectId": "miniapp", "vulnIds": ["A01"]}).json()["runId"]
         assert c.post(f"/api/runs/{first}/cancel").json()["ok"] is True
+        # M4: el run:cancelled entregado al cliente lleva findings.
+        # (El brief lo situaba tras el 2º POST, pero con T4 (task.cancel) + M5 (poda en
+        # start) el run ya es terminal y podado antes del 2º POST → el drain daría 404.
+        # Aquí se verifica el mismo contrato observable: el último evento del run cancelado.)
+        ev_first = drain_events(c, first)
+        assert ev_first[-1]["type"] == "run:cancelled" and "findings" in ev_first[-1]
         second = c.post("/api/analyze", json={"projectId": "miniapp", "vulnIds": ["A03"]})
         assert second.status_code == 202  # supersede (ruling R3)
+
+
+def test_cancel_in_flight_is_fast(monkeypatch, samples_dir):
+    import time as _time
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+    monkeypatch.setattr("app.main.build_llm", lambda: make_llm(delay=0.5))
+    with TestClient(app) as c:
+        run_id = c.post("/api/analyze", json={"projectId": "miniapp", "vulnIds": ["A01", "A03"]}).json()["runId"]
+        _time.sleep(0.1)  # el run está en vuelo (LLM fake de 0.5 s)
+        assert c.post(f"/api/runs/{run_id}/cancel").json()["ok"] is True
+        t0 = _time.monotonic()
+        ev = drain_events(c, run_id)  # debe cerrar < 0.3 s después del cancel
+        elapsed = _time.monotonic() - t0
+    assert elapsed < 0.3  # sin task.cancel sería >= 0.4 s (la llamada en vuelo)
+    assert ev[-1]["type"] == "run:cancelled" and "findings" in ev[-1]
+    assert not any(e["type"] == "agent:done" and e.get("findingsCount", 0) > 0 for e in ev)
+    with TestClient(app) as c2:  # slot libre: un run nuevo arranca al instante
+        assert c2.post("/api/analyze", json={"projectId": "miniapp", "vulnIds": ["A01"]}).status_code == 202
+
+
+def test_start_purges_terminal_runs():
+    from app.runs import RunRegistry, RunState, RunStatus
+    reg = RunRegistry()
+    reg.runs["old"] = RunState(id="old", project_id="p", vuln_ids=["A01"], status=RunStatus.DONE)
+    new = reg.start("p", ["A01"])
+    assert new is not None and "old" not in reg.runs and new.id in reg.runs
 
 
 def test_unknown_project_404(monkeypatch, samples_dir):
