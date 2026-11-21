@@ -16,6 +16,42 @@ ALL_VULN_IDS = tuple(f"A{i:02d}" for i in range(1, 11))
 SEVERITY_ES = {"critical": "CRÍTICO", "high": "ALTO", "medium": "MEDIO", "low": "BAJO"}
 
 
+def _consolidate(findings: list[dict]) -> tuple[list[dict], int]:
+    """Consolida hallazgos de la misma (file, line) reportados por varias categorías.
+
+    Gana la categoría canónica menor (A01 < A02 < ...); las demás quedan en
+    ``alsoCategories``. Devuelve (consolidados ordenados, n_descartados).
+    Los ``id`` se renumeran por categoría ganadora: ``{vulnId}-{n}`` 1-based.
+    Los duplicados intra-categoría (mismo agente, misma línea) se conservan.
+    """
+    groups: dict[tuple[str, int], list[dict]] = {}
+    order: list[tuple[str, int]] = []
+    for f in findings:
+        key = (f["file"], f["line"])
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(f)
+    out: list[dict] = []
+    discarded = 0
+    for key in order:
+        members = sorted(groups[key], key=lambda f: f["vulnId"])
+        winner_vid = members[0]["vulnId"]
+        kept = [dict(m) for m in members if m["vulnId"] == winner_vid]
+        also = sorted({m["vulnId"] for m in members if m["vulnId"] != winner_vid})
+        if also:
+            for k in kept:
+                k["alsoCategories"] = also
+        discarded += len(members) - len(kept)
+        out.extend(kept)
+    out.sort(key=lambda f: (f["vulnId"], f["file"], f["line"]))
+    counters: dict[str, int] = {}
+    for f in out:
+        counters[f["vulnId"]] = counters.get(f["vulnId"], 0) + 1
+        f["id"] = f"{f['vulnId']}-{counters[f['vulnId']]}"
+    return out, discarded
+
+
 async def run_pipeline(
     llm: LLMClient,
     scan: ScanResult,
@@ -112,6 +148,13 @@ async def run_pipeline(
                      tokens=res.completion_tokens, tps=round(res.tps, 1))
 
         await asyncio.gather(*(agent(v) for v in ordered))
+
+        # Desduplicación entre categorías (Task 5): un solo punto, tras el gather y
+        # antes del cierre, DENTRO del try (cubre también el run:cancelled de T4).
+        run.findings, dupes = _consolidate(run.findings)
+        if dupes:
+            emit(run, "log", vulnId="global",
+                 message=f"consolidados {dupes} hallazgo(s) duplicado(s) entre categorías")
 
         # Cierre del run
         if run.status == RunStatus.CANCELLING:

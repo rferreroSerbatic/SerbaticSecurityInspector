@@ -218,3 +218,73 @@ def test_pipeline_error_skips_queued_agents():
         for e in run.events
     )
     assert run.findings == []
+
+
+def test_consolidate_two_categories_same_line():
+    from app.pipeline import _consolidate
+    fs = [
+        {**_finding(file="routes/orders.js", line=4, vulnId="A03", id="A03-1")},
+        {**_finding(file="routes/orders.js", line=4, vulnId="A05", id="A05-1")},
+    ]
+    out, discarded = _consolidate(fs)
+    assert discarded == 1 and len(out) == 1
+    assert out[0]["vulnId"] == "A03"
+    assert out[0]["alsoCategories"] == ["A05"]
+
+
+def test_consolidate_three_categories_and_renumbers():
+    from app.pipeline import _consolidate
+    fs = [
+        {**_finding(line=10, vulnId="A05", id="A05-1")},
+        {**_finding(line=10, vulnId="A01", id="A01-1")},
+        {**_finding(line=10, vulnId="A03", id="A03-1")},
+        {**_finding(line=20, vulnId="A03", id="A03-2")},
+    ]
+    out, discarded = _consolidate(fs)
+    assert discarded == 2
+    assert [f["id"] for f in out] == ["A01-1", "A03-1"]
+    assert out[0]["alsoCategories"] == ["A03", "A05"]
+    assert out[1]["line"] == 20
+
+
+def test_consolidate_no_duplicates_keeps_all():
+    from app.pipeline import _consolidate
+    fs = [
+        {**_finding(line=1, vulnId="A01", id="A01-1")},
+        {**_finding(line=2, vulnId="A01", id="A01-2")},  # intra-categoría: se conserva
+    ]
+    out, discarded = _consolidate(fs)
+    assert discarded == 0 and len(out) == 2
+    assert "alsoCategories" not in out[0]
+
+
+def test_consolidate_intra_category_duplicates_kept():
+    from app.pipeline import _consolidate
+    fs = [
+        {**_finding(file="a.js", line=7, vulnId="A01", id="A01-1", title="t1")},
+        {**_finding(file="a.js", line=7, vulnId="A01", id="A01-2", title="t2")},
+        {**_finding(file="a.js", line=7, vulnId="A03", id="A03-1")},
+    ]
+    out, discarded = _consolidate(fs)
+    assert discarded == 1
+    assert len(out) == 2
+    assert [f["id"] for f in out] == ["A01-1", "A01-2"]
+    for f in out:
+        assert f["alsoCategories"] == ["A03"]
+
+
+def test_pipeline_consolidates_cross_category_duplicates():
+    run = RunRegistry().start("miniapp", ["A01", "A03"])
+    llm = FakeVulnLLM(
+        {"A01": json.dumps([_finding(file="routes/orders.js", line=4)]),
+         "A03": json.dumps([_finding(file="routes/orders.js", line=4),
+                             _finding(file="routes/orders.js", line=9)])},
+        PROFILE_JSON,
+    )
+    asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01", "A03"], run, concurrency=2))
+    done = run.events[-1]
+    assert done["type"] == "run:done"
+    assert [f["id"] for f in done["findings"]] == ["A01-1", "A03-1"]
+    assert done["findings"][0]["alsoCategories"] == ["A03"]
+    assert any("consolidados 1 hallazgo(s) duplicado(s) entre categorías" in e.get("message", "")
+               for e in run.events)
