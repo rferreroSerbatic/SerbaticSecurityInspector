@@ -6,9 +6,9 @@
 ## Estado actual
 
 - **Fase:** 1 + 1.1 — **COMPLETA** (15/15 + 4/4, push + tag v0.1.0; 77/77 tests, build limpio)
-- **Fase 2a** (motor de análisis real: backend FastAPI + 11 agentes LLM + SSE + modo live en el front) — **EN MARCHA** (4/8 tasks; reviews por task limpias)
+- **Fase 2a** (motor de análisis real: backend FastAPI + 11 agentes LLM + SSE + modo live en el front) — **EN MARCHA** (7/8 tasks; reviews por task limpias)
 - **Tarea en curso:** ninguna
-- **Siguiente:** Task 5 del plan Fase 2a (pipeline de 2 oleadas + runs + SSE + cancel/supersede) · QA visual en navegador sigue pendiente (R1–R8)
+- **Siguiente:** Task 8 del plan Fase 2a: **E2E real** — clonar DVWA (`samples/dvwa`, gitignored), run con LLM real sobre `samples/miniapp` (gate ≥ 8/10 contra `expected-findings.json`, iterar prompts si toca), run E2E DVWA, final review de rama, tag `v0.2.0`. · QA visual en navegador sigue pendiente (R1–R8)
 - **QA visual pendiente (navegador, `npm run dev` → http://localhost:5173, mockups en `.superpowers/brainstorm/430-1795195954/content/`):**
   - R1: H1 de home — degradado cian→magenta vs plano del mockup; comprobar en pantalla.
   - R2: formato de línea del log en vivo (ProgressScreen): `[mm:ss]` + tag + mensaje.
@@ -21,7 +21,7 @@
 - **Bloqueos / pendientes externos:**
   - ✅ **Node:** instalado **Node 26.13.1** + npm 11.20 (cumple el floor Node ≥ 20 del plan).
   - ✅ **GitHub:** repo `rferreroSerbatic/SerbaticSecurityInspector` (privado) creado; `main` + tag `v0.1.0` pushados (2026-11-21).
-  - Python no instalado (solo se necesita en Fase 2).
+  - ✅ **Python:** 3.12.10 instalado (2026-11-21, winget) + venv `backend/.venv`.
 
 ## Cómo retomar (para una sesión nueva)
 
@@ -64,9 +64,9 @@
 - [x] Task 2: Scanner + miniapp de ejemplo + `GET /api/projects` *(commit 762ce06 — 1 fix round: pytest.ini amendado al commit; review limpia)*
 - [x] Task 3: Cliente LLM + agente perfilador *(commit 22d8137, review limpia)*
 - [x] Task 4: Agentes de vulnerabilidad A01–A10 (prompts, parse, validación) *(commit 5c26bb5, review limpia)*
-- [ ] Task 5: Pipeline de 2 oleadas + registro de runs + SSE + cancel/supersede
-- [ ] Task 6: `liveAnalysisService` (SSE) + estado de error en el front
-- [ ] Task 7: Modo live (autodetección, proyectos reales, banner de error, proxy Vite)
+- [x] Task 5: Pipeline de 2 oleadas + registro de runs + SSE + cancel/supersede *(commit ed4ee4c — 1 fix round: race check-then-act de `cancel_run` → `async def`; review limpia)*
+- [x] Task 6: `liveAnalysisService` (SSE) + estado de error en el front *(commit 79cc5a7, review limpia)*
+- [x] Task 7: Modo live (autodetección, proyectos reales, banner de error, proxy Vite) *(commit 51cce1b, review limpia)*
 - [ ] Task 8: E2E real (LLM + DVWA) + ground truth + cierre (tag v0.2.0)
 
 ## Entorno
@@ -76,7 +76,7 @@
 | Node | **v26.13.1** ✓ (instalado 2026-11-20) |
 | npm | 11.20.0 ✓ |
 | git | 2.56 ✓ (repo local inicializado, commit 0 hecho) |
-| Python | no instalado (Fase 2) |
+| Python | **3.12.10** ✓ (instalado 2026-11-21, winget) + venv `backend/.venv` |
 | GitHub | ✅ `rferreroSerbatic/SerbaticSecurityInspector` (privado) — `main` + `v0.1.0` pushados (2026-11-21) |
 | Mockups aprobados | `.superpowers/brainstorm/430-1795195954/content/*.html` — **no borrar** (QA visual de la Task 15); están gitignored |
 
@@ -96,6 +96,7 @@
 - 2026-11-21 — **Fase 1.1 completada** (4/4 tasks + reviews por task + final review de rama limpia; 77/77 tests, build limpio). Rulings que desviaron del texto literal del plan (todos en el ledger SDD, verificado por el final reviewer): (1) el glow de `VulnSelectScreen` también se eliminó (la lista de archivos del brief lo omitía, pero su texto normativo exige «ninguna pantalla renderiza radial-gradient»); (2) `webkitdirectory=""` + ampliación `declare module 'react'` en vez del `declare global` del brief (incompilable con TS 5.6: lib.dom ya declara `webkitdirectory: boolean`; y el atributo sin valor generaba warning de React 18, prohibido por el propio criterio «output sin warnings» del plan); (3) la prioridad de la carpeta real sobre los demos es incondicional (el brief lo prescribe) → si el usuario elige carpeta y luego un radio demo, CONTINUAR sigue mandando la carpeta (la línea de confirmación lo hace visible) — **diferido a Fase 2** como UX a resolver junto con el análisis real; (4) duplicación del par cancel en `useAnalysis` (ahora 5×) — diferido a Fase 2 (helper `cancelCurrent()`); (5) la ampliación de tipos de `webkitdirectory` vive en `SourceScreen.tsx` — mover a tipos compartidos cuando aparezca un segundo consumidor; (6) doc-level: la spec dice «Seleccionar carpeta…» y el plan/la app usan «📂 SELECCIONAR CARPETA» (el plan manda; alinear la spec en la próxima edición).
 - 2026-11-21 — Sesión de ejecución: por instrucción del usuario, todos los subagentes corrieron con `aitana/qwen3.8-fp8` (Qwen3.8 Aitana LLM) a partir de media Fase 1.1 (la implementación de la Task 2 ya estaba hecha con otro modelo y se mantuvo).
 - 2026-11-21 — **Pautas de trabajo nuevas (usuario, tras Fase 1.1):** (1) **menos commits, agrupados**: uno por task, con la implementación y sus fix rounds de review en el mismo commit (amendar antes de pushear; push único al terminar la task) — en Fase 1.1 salieron 9 commits + 1 docs; objetivo a partir de ahora ≈1 commit por task. (2) **menos comprobaciones**: rojo→verde solo del test de la task; suite completa + `npm run build` una sola vez al final de la task; sin re-ejecuciones del coordinador que dupliquen evidencia ya dejada en el report del subagente. Detalle en `AGENTS.md` «Reglas de trabajo».
+- 2026-11-21 — **Sesión Fase 2a — Tasks 5–7 completadas** (backend: pipeline + runs + SSE; front: liveAnalysisService + modo live). 27/27 tests backend, 89/89 front, builds limpios. Rulings relevantes (detalle en el ledger SDD): (1) **race real encontrada en review de Task 5**: el endpoint `cancel_run` síncrono (threadpool) podía dejar un run zombie `CANCELLING` tras `run:done` y colgar el stream SSE de un cliente tardío → fix `async def cancel_run` (check-then-act atómico en el event loop); (2) **Task 7**: `AbortSignal.timeout(1500)` verificado presente en jsdom/Vitest (no hizo falta fallback `AbortController`); timeout también en el fetch de `/api/projects` (fuera de brief, razonable); autodetección con 3 modos (`service` / `projects` / auto) y modo mock intacto. **Minors diferidos a la final review** (ver ledger): descarte post-terminal de un run suplantado (cosmético), `res.json()` sin `Array.isArray` en App.tsx, `projects: []` en modo live = callejón sin salida (revisar en E2E de la Task 8), + nits de tests.
 - 2026-11-21 — **Fase 2a aprobada** (diseño + plan): motor de análisis real = backend FastAPI + **11 agentes LLM** (1 perfilador + 10 OWASP) contra **qwen3.8 FP8** vía el endpoint del usuario (`https://aitana.serbatic.es/v1`, OpenAI-compatible; `enable_thinking: false` — verificado 2026-11-21 con llamada real; contexto 256k). El análisis lo ejecuta **la app en runtime** (el usuario descartó expresamente usar el agente de desarrollo/OpenCode como motor). API key en `backend/.env` (gitignored; copiada de la config de OpenCode, nunca en el front ni en git). Proyectos de ejemplo: `samples/miniapp` (Express, 10 vulns sembradas, una por categoría; test de regresión ≥ 8/10 contra `expected-findings.json`) + `samples/dvwa` (se clona; scope de análisis `vulnerabilities/` + `include/`). Frontend: `liveAnalysisService` tras `AnalysisService` + autodetección de backend + banner de error; picker/git ocultos en modo live (→ 2b). **Rulings del builder check (R1–R3):** (1) `run:error`/409 → nuevo `status: 'error'` + banner mínimo en ProgressScreen; el cancel no necesita estado nuevo (la máquina `useAnalysis` ya lo gestiona); (2) el escaneo distingue `files` de `manifests` y ambos son `file` válido (ruling para que A06 —`package.json`— no se descarte sistemáticamente); (3) el slot de run se libera al terminar el enfriamiento, pero un run en estado `cancelling` puede ser **suplantado** (supersede) por un `POST /api/analyze` nuevo → «volver y relanzar» funciona al instante. Python **3.12.10** instalado vía winget. Design: `docs/superpowers/specs/2026-11-21-fase2a-motor-analisis-real-design.md`; plan de 8 tasks: `docs/superpowers/plans/2026-11-21-fase2a-motor-analisis-real-plan.md`.
 
 ## Fuera de scope (fases futuras)
