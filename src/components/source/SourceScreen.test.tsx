@@ -276,3 +276,70 @@ test('modo mock: sin el bloque «Auditar un proyecto propio»', () => {
   renderScreen()
   expect(screen.queryByText(/auditar un proyecto propio/i)).toBeNull()
 })
+
+// --- Task 2 (Fase 2b.1): navegador de carpetas (📂 NAVEGAR) ---
+const TARGET = 'C:/Users/rferrero/Documentos/mi app (copia)'
+
+const browseFetch = (
+  bodies: Array<{ path: string; parent: string | null; folders: unknown[] }>,
+  postStatus = 201,
+) => {
+  let n = 0
+  // `_init` con prefijo (y no usado): deja tipar `mock.calls[i][1]` (el body del POST)
+  // sin error de `noUnusedParameters`.
+  const fn = vi.fn(async (url: string, _init?: RequestInit) => {
+    const u = String(url)
+    if (u.startsWith('/api/browse')) {
+      const body = bodies[Math.min(n++, bodies.length - 1)]
+      return { ok: true, status: 200, json: async () => body }
+    }
+    return { ok: postStatus === 201, status: postStatus, json: async () => ({ project: { id: 'x' } }) }
+  })
+  globalThis.fetch = fn as unknown as typeof fetch
+  return fn
+}
+
+test('modo live: 📂 NAVEGAR abre el navegador (GET /api/browse)', async () => {
+  const fn = browseFetch([{ path: 'C:/Users/rferrero', parent: 'C:/Users', folders: [] }])
+  liveScreen()
+  expect(screen.queryByText('ELEGIR CARPETA')).toBeNull()
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /navegar/i }))
+  })
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(fn).toHaveBeenCalledWith('/api/browse')
+})
+
+test('modo live: USAR ESTA CARPETA rellena el input y registra (201 → onRefresh, input limpio)', async () => {
+  const fn = browseFetch([
+    { path: 'C:/Users/rferrero/Documentos', parent: 'C:/Users/rferrero',
+      folders: [{ name: 'mi app (copia)', path: TARGET, registered: 'local' }] },
+    { path: TARGET, parent: 'C:/Users/rferrero/Documentos', folders: [] },
+  ])
+  const onRefresh = vi.fn().mockResolvedValue(undefined)
+  liveScreen({ onRefresh })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /navegar/i })) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /mi app \(copia\)/ })) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /usar esta carpeta/i })) })
+  const localCall = fn.mock.calls.find(c => c[0] === '/api/projects/local')
+  expect(localCall?.[1]?.body).toBe(JSON.stringify({ path: TARGET }))
+  expect(onRefresh).toHaveBeenCalledTimes(1)
+  expect(screen.getByLabelText('Ruta local del proyecto')).toHaveValue('')
+})
+
+test('modo live: 400 de registro al usar carpeta del navegador → error inline + input conserva la ruta', async () => {
+  browseFetch(
+    [
+      { path: 'C:/Users/rferrero/Documentos', parent: 'C:/Users/rferrero',
+        folders: [{ name: 'mi app (copia)', path: TARGET, registered: null }] },
+      { path: TARGET, parent: 'C:/Users/rferrero/Documentos', folders: [] },
+    ],
+    400,
+  )
+  liveScreen()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /navegar/i })) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /mi app \(copia\)/ })) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /usar esta carpeta/i })) })
+  expect(screen.getByText('Ruta no válida: debe existir, ser una carpeta y no estar dentro de samples/')).toBeInTheDocument()
+  expect(screen.getByLabelText('Ruta local del proyecto')).toHaveValue(TARGET)
+})

@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_settings
-from app.git_projects import GitCloneError, git_analyze, git_list, register_git
+from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git
 from app.llm import LLMClient
-from app.local_projects import local_analyze, local_list, register_local, resolve_local
+from app.local_projects import LOCAL, local_analyze, local_list, register_local, resolve_local
 from app.pdf_report import build_report_pdf, build_scope_pdf
 from app.pipeline import ALL_VULN_IDS, run_pipeline
 from app.projects import get_project, list_projects
@@ -91,6 +93,47 @@ def add_git_project(body: GitProjectBody):
     except GitCloneError as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo clonar: {exc}")
     return {"project": info}
+
+
+def _route_key(p: Path) -> str:
+    """Clave de comparación de rutas: normalizada (case-insensitive en Windows)."""
+    return os.path.normcase(str(p.resolve()))
+
+
+@app.get("/api/browse")
+def browse(path: str | None = None):
+    """Subcarpetas directas de ``path`` (o de home si no se da) para el navegador de carpetas (G2).
+
+    ``def`` a propósito: I/O de disco en threadpool, fuera del event loop.
+    Mismo nivel de confianza que ``POST /api/projects/local`` (cualquier ruta local;
+    servidor solo localhost, herramienta single-user por diseño).
+    """
+    try:
+        p = (Path(path) if path else Path.home()).expanduser().resolve()
+    except OSError:
+        raise HTTPException(status_code=400, detail="Ruta no válida")
+    if not p.is_dir():
+        raise HTTPException(status_code=400, detail="La ruta no es una carpeta")
+    local_roots = {_route_key(root) for root, _ in LOCAL.values()}
+    git_roots = {_route_key(dest) for dest in GIT.values()}
+    try:
+        entries = sorted(
+            (e for e in p.iterdir() if e.is_dir() and not e.name.startswith(".")),
+            key=lambda e: e.name.lower(),
+        )
+    except OSError:
+        raise HTTPException(status_code=400, detail="No se pudo leer la carpeta")
+    folders = []
+    for e in entries:
+        k = _route_key(e)
+        registered = "local" if k in local_roots else "git" if k in git_roots else None
+        folders.append({"name": e.name, "path": e.as_posix(), "registered": registered})
+    parent = p.parent
+    return {
+        "path": p.as_posix(),
+        "parent": parent.as_posix() if parent != p else None,
+        "folders": folders,
+    }
 
 
 @app.post("/api/analyze", status_code=202)

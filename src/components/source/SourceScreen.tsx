@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { BrowseModal } from './BrowseModal'
 import { NeonButton } from '../ui/NeonButton'
 import type { ChangeEvent } from 'react'
 import type { ProjectInfo, Source } from '../../types'
@@ -48,6 +49,8 @@ export function SourceScreen({
   const [gitBusy, setGitBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [gitError, setGitError] = useState<string | null>(null)
+  // Navegador de carpetas (G2 Fase 2b.1): modal live para elegir la carpeta por clics.
+  const [browseOpen, setBrowseOpen] = useState(false)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const canContinue = live
@@ -81,8 +84,8 @@ export function SourceScreen({
     setSelected(null)
   }
 
-  const submitLocal = async () => {
-    const path = localPath.trim()
+  const submitLocal = async (pathOverride?: string) => {
+    const path = (pathOverride ?? localPath).trim()
     if (!path || localBusy || gitBusy) return
     setLocalBusy(true)
     setLocalError(null)
@@ -201,6 +204,13 @@ export function SourceScreen({
                       className="w-full border border-ink-faint bg-panel px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(0,229,255,0.25)] focus:outline-none"
                     />
                     <NeonButton
+                      variant="ghost"
+                      disabled={localBusy || gitBusy}
+                      onClick={() => setBrowseOpen(true)}
+                    >
+                      📂 NAVEGAR
+                    </NeonButton>
+                    <NeonButton
                       variant="outline"
                       disabled={!localPath.trim() || localBusy || gitBusy}
                       onClick={() => { void submitLocal() }}
@@ -236,6 +246,15 @@ export function SourceScreen({
                 </div>
               </div>
             </div>
+            <BrowseModal
+              open={browseOpen}
+              onClose={() => setBrowseOpen(false)}
+              onUse={p => {
+                setLocalPath(p)
+                setBrowseOpen(false)
+                void submitLocal(p)
+              }}
+            />
           </>
         ) : (
           <>
