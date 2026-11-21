@@ -33,8 +33,17 @@ def test_miniapp_ground_truth():
     asyncio.run(go())
     assert run.status in ("done", "error"), f"run terminó en {run.status}: {run.events[-1]}"
 
-    found = {(f["vulnId"], f["file"]) for f in run.findings}
-    matched = [e for e in expected if (e["vulnId"], e["file"]) in found]
+    # Desde la T5, los reportes de varias categorías en el mismo (file, line) se
+    # consolidan: la ganadora queda como `vulnId` y las demás en `alsoCategories`.
+    # El gate cuenta ambas representaciones como «detectado» (el LLM sí vio la vuln).
+    def detected(vuln_id: str, file: str) -> bool:
+        return any(
+            f["file"] == file
+            and (f["vulnId"] == vuln_id or vuln_id in (f.get("alsoCategories") or []))
+            for f in run.findings
+        )
+
+    matched = [e for e in expected if detected(e["vulnId"], e["file"])]
     missing = [e for e in expected if e not in matched]
     assert len(matched) >= 8, f"ground truth {len(matched)}/10; sin detectar: {missing}"
     print(f"\nGROUND TRUTH: {len(matched)}/10 · fallos: {[e['vulnId'] for e in missing]}")

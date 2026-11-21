@@ -288,3 +288,17 @@ def test_pipeline_consolidates_cross_category_duplicates():
     assert done["findings"][0]["alsoCategories"] == ["A03"]
     assert any("consolidados 1 hallazgo(s) duplicado(s) entre categorías" in e.get("message", "")
                for e in run.events)
+
+
+def test_pipeline_finding_without_optional_fields_gets_empty_strings():
+    """M1 (diferido de la 2a): un finding del LLM sin las keys opcionales
+    (snippet/exploit/consequences/solution) llega a UI/PDF con "" y nunca sin key."""
+    finding = _finding(file="routes/admin.js", line=5, title="Admin sin autorización")
+    finding.pop("snippet")
+    finding.pop("exploit")
+    run = RunRegistry().start("miniapp", ["A01"])
+    llm = FakeVulnLLM({"A01": json.dumps([finding])}, PROFILE_JSON)
+    asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01"], run, concurrency=1))
+    assert run.status == RunStatus.DONE
+    assert run.findings[0]["snippet"] == ""
+    assert run.findings[0]["exploit"] == ""

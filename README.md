@@ -33,8 +33,10 @@ Herramienta web de auditoría de seguridad de código. **La propia aplicación e
 cd backend
 python -m venv .venv
 .venv\Scripts\activate        # Windows (en Linux/macOS: source .venv/bin/activate)
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
+
+`requirements.txt` = solo runtime; `requirements-dev.txt` = runtime + pytest/anyio.
 
 Crea `backend/.env` (está gitignored; **nunca commitees la key**):
 

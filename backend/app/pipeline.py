@@ -140,7 +140,15 @@ async def run_pipeline(
                         severity=f["severity"],
                         message=f"[{SEVERITY_ES[f['severity']]}] {f['file']}:{f['line']} — {f['title']}",
                     )
-                    run.findings.append({**f, "id": f"{v}-{i}", "vulnId": v})
+                    run.findings.append({
+                        **f,
+                        "id": f"{v}-{i}",
+                        "vulnId": v,
+                        "snippet": str(f.get("snippet") or ""),
+                        "exploit": str(f.get("exploit") or ""),
+                        "consequences": str(f.get("consequences") or ""),
+                        "solution": str(f.get("solution") or ""),
+                    })
                 if discarded > 0:
                     emit(run, "log", vulnId=v, message=f"descartados {discarded} hallazgo(s) inválido(s)")
                 criticals = sum(1 for f in valid if f.get("severity") == "critical")
