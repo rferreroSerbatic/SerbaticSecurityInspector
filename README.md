@@ -78,6 +78,8 @@ cd backend
 .venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
 ```
 
+> **Nota de operación:** si en el log de uvicorn ves líneas periódicas de `GET /health 200` + `GET /v1/models 404`, es sondeo del CLI de OpenCode contra servidores OpenAI-compatible locales (8000 es el puerto por defecto de vLLM). Ruido inofensivo, no hay acción.
+
 **2. Frontend (puerto 5173)**
 
 ```bash
