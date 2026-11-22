@@ -6,6 +6,7 @@ import asyncio
 import time
 from collections.abc import Callable
 
+from app.agents.guides import run_guides
 from app.agents.profile import run_profile
 from app.agents.vulns import build_vuln_prompt, parse_findings, validate_finding
 from app.llm import LLMClient, LLMError
@@ -147,8 +148,11 @@ async def run_pipeline(
                 # La llamada ya se gastó aunque el resultado se descarte (run terminal en vuelo).
                 total_tokens += res.completion_tokens
                 total_llm_s += res.elapsed_s
-                # Si el run ya falló o se canceló (p. ej. supersede) en vuelo: descartar sin emitir
-                if run.status in (RunStatus.ERROR, RunStatus.CANCELLING, RunStatus.CANCELLED):
+                # Si el run ya falló (ERROR) o fue suplantado (CANCELLED) en vuelo: descartar
+                # sin emitir. CANCELLING no es terminal (runs.py): el cierre emite run:cancelled
+                # con los findings acumulados, así un cancel justo al terminar la oleada 2
+                # conserva sus hallazgos (spec 2d «findings parciales»; RF4 de Task 3).
+                if run.status in (RunStatus.ERROR, RunStatus.CANCELLED):
                     return
                 raw = res.content
                 raw_findings = parse_findings(raw, v)
@@ -185,6 +189,14 @@ async def run_pipeline(
         if dupes:
             emit(run, "log", vulnId="global",
                  message=f"consolidados {dupes} hallazgo(s) duplicado(s) entre categorías")
+
+        # Oleada 3 (Fase 2d): guías de explotación — 1 llamada LLM por hallazgo
+        # (pool acotado). Solo con el run vivo: ERROR/CANCELLING se cierran en su rama.
+        if run.status == RunStatus.RUNNING and run.findings:
+            g_tokens, g_llm_s = await run_guides(llm, run.findings, scan, profile,
+                                                 project_name, run, concurrency)
+            total_tokens += g_tokens
+            total_llm_s += g_llm_s
 
         # Cierre del run
         if run.status == RunStatus.CANCELLING:
