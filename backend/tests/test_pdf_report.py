@@ -4,20 +4,26 @@ import re
 import zlib
 
 from fastapi.testclient import TestClient
+from reportlab.lib.pagesizes import A4
 
 from app.main import app
-from app.pdf_report import build_report_pdf, build_scope_pdf
+from app.pdf_report import _MARGIN, build_report_pdf, build_scope_pdf
 
 
 def _scope_content(data: bytes) -> bytes:
-    """Stream de contenido del scope PDF descomprimido (ahora hay también el stream del logo)."""
+    """Stream de contenido del scope PDF (ahora sin comprimir; hay también el stream del logo)."""
     for m in re.finditer(rb"stream\r?\n(.*?)endstream", data, re.S):
+        raw = m.group(1)
+        # El stream del logo (a85, termina en ~>) puede contener "Tj" por azar:
+        # el de contenido es el único no-a85 (pageCompression=0) con Tj dentro de BT/ET.
+        if b"Tj" in raw and b"BT" in raw and not raw.rstrip().endswith(b"~>"):
+            return raw
         try:
-            raw = zlib.decompress(base64.a85decode(m.group(1), adobe=True))
+            dec = zlib.decompress(base64.a85decode(raw, adobe=True))
+            if b"Tj" in dec and b"BT" in dec:
+                return dec
         except Exception:
             continue
-        if b"Tj" in raw:
-            return raw
     raise AssertionError("stream de contenido no encontrado")
 
 
@@ -180,3 +186,197 @@ def test_report_pdf_snippet_cjk_por_token():
     assert b"??????" in drawn      # «日本語テスト» (6) → 6 «?»
     assert b"emoji" in drawn       # el ASCII se conserva
     assert b"nnnnnn" not in data   # sin la sustitución silenciosa «n» de reportlab
+
+
+# --- Reestilo del PDF de alcance (Fase 2c, G4) ---
+def _scope_payload() -> str:
+    header = (
+        "ALCANCE TÉCNICO DE MEJORA — SEGURIDAD\n"
+        "Proyecto: miniapp · 22/11/2026 · Serbatic Security Inspector"
+    )
+    blocks = [
+        "1. EVALUACIÓN INSEGURA (A05 CONFIGURACIÓN INSEGURA) — CRÍTICO\n"
+        "Objetivo: eliminar evaluación insegura detectado en app.js.\n"
+        "· Revisar la ocurrencia en app.js:1 y aplicar la solución recomendada.\n"
+        "· Validar el cambio con una prueba que cubra el caso.\n"
+        "Estimación: 4 h · Prioridad: inmediata",
+        "2. XSS REFLEJADO (A03 INYECCIÓN) — ALTO\n"
+        "Objetivo: eliminar xss reflejado detectado en server.js.\n"
+        "· Revisar la ocurrencia en server.js:7 y aplicar la solución recomendada.\n"
+        "· Validar el cambio con una prueba que cubra el caso.\n"
+        "Estimación: 3 h · Prioridad: alta",
+        "3. CABECERAS AUSENTES (A05 CONFIGURACIÓN INSEGURA) — MEDIO\n"
+        "Objetivo: eliminar cabeceras ausentes detectado en server.js.\n"
+        "· Revisar la ocurrencia en server.js:2 y aplicar la solución recomendada.\n"
+        "· Validar el cambio con una prueba que cubra el caso.\n"
+        "Estimación: 2 h · Prioridad: media",
+    ]
+    return header + "\n\n" + "\n\n".join(blocks)
+
+
+def test_scope_pdf_cards_con_titulos_chips_y_colores_severidad():
+    data = build_scope_pdf(_scope_payload())
+    assert data[:5] == b"%PDF-"
+    assert b"Helvetica-Bold" in data  # títulos de card en negrita (stream sin comprimir)
+    drawn = _drawn_strings(data)
+    # título de la card 1 (Ó = 0xD3 → escape octal \323)
+    assert b"1. EVALUACI\\323N INSEGURA" in drawn
+    # chips de severidad (Í = 0xCD → \315; ALTO/MEDIO son ASCII)
+    assert b"CR\\315TICO" in drawn
+    assert b"ALTO" in drawn
+    assert b"MEDIO" in drawn
+    # la línea de estimación, entera en una sola cadena dibujada (· = 0xB7 → \267)
+    assert b"4 h \\267 Prioridad: inmediata" in drawn
+    # colores de los chips (los hex de _SEV)
+    got = _rg_colors(data)
+    for hx in ("#be185d", "#c2410c", "#a16207"):
+        r, g, b = (int(hx[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        assert any(abs(a - r) < 0.01 and abs(bg - g) < 0.01 and abs(cc - b) < 0.01
+                   for a, bg, cc in got), hx
+
+
+def test_scope_pdf_cabecera_centrada_y_subtitulo():
+    drawn = _drawn_strings(build_scope_pdf(_scope_payload()))
+    # título del documento (É = 0xC9 → \311; — = 0x97 → \227)
+    assert b"ALCANCE T\\311CNICO DE MEJORA \\227 SEGURIDAD" in drawn
+    assert b"Proyecto: miniapp" in drawn  # subtítulo de la cabecera
+
+
+def test_scope_pdf_sincabecera_usa_title_del_parametro():
+    data = build_scope_pdf(
+        "1. COSA (A01) — ALTO\nObjetivo: corregir cosa.\nEstimación: 1 h · Prioridad: baja",
+        "Mi Título",
+    )
+    assert data[:5] == b"%PDF-"
+    drawn = _drawn_strings(data)
+    assert b"Mi T\\355tulo" in drawn  # í = 0xED → \355
+
+
+def test_scope_pdf_bloque_plano_por_fallback():
+    data = build_scope_pdf("ALCANCE\n\nTexto libre editado por el usuario\nque no encaja en el patrón")
+    assert data[:5] == b"%PDF-"
+    drawn = _drawn_strings(data)
+    assert b"Texto libre editado por el usuario" in drawn
+    assert b"que no encaja en el patr\\363n" in drawn  # ó = 0xF3 → \363
+
+
+def test_scope_pdf_card_sin_severidad_sin_chip():
+    data = build_scope_pdf(
+        "ALCANCE\n\n1. TITULO LIBRE (A01)\nObjetivo: cosa.\nEstimación: 1 h · Prioridad: baja"
+    )
+    assert data[:5] == b"%PDF-"
+    drawn = _drawn_strings(data)
+    # ( y ) se escapan como \( \) en los strings literales del PDF
+    assert b"1. TITULO LIBRE \\(A01\\)" in drawn
+    got = _rg_colors(data)
+    for hx in ("#be185d", "#c2410c", "#a16207", "#0e7490"):  # sin colores de chip
+        r, g, b = (int(hx[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        assert not any(abs(a - r) < 0.01 and abs(bg - g) < 0.01 and abs(cc - b) < 0.01
+                       for a, bg, cc in got), hx
+
+
+def test_scope_pdf_multipagina_y_pie():
+    blocks = []
+    for i in range(30):
+        sev = ("CRÍTICO", "ALTO", "MEDIO", "BAJO")[i % 4]
+        blocks.append(
+            f"{i + 1}. TÍTULO LARGO DE PRUEBA NÚMERO {i + 1} (A01 INYECCIÓN) — {sev}\n"
+            f"Objetivo: eliminar el problema {i + 1} detectado en archivo_{i + 1}.js.\n"
+            f"· Revisar la ocurrencia en archivo_{i + 1}.js:{i + 1} y aplicar la solución.\n"
+            f"· Validar el cambio con una prueba que cubra el caso del hallazgo.\n"
+            f"Estimación: {4 - i % 4} h · Prioridad: alta"
+        )
+    data = build_scope_pdf("ALCANCE\n\n" + "\n\n".join(blocks))
+    assert data[:5] == b"%PDF-"
+    assert len(re.findall(rb"/Type /Page\b", data)) >= 2
+    drawn = _drawn_strings(data)
+    assert b"P\\341gina" in drawn  # «Página N» del pie (páginas 2+)
+    assert b"Serbatic Security Inspector" in drawn  # marca en el pie
+    # cabecera de páginas 2+ (title param); «técnico» lleva é = 0xE9 → \351
+    assert b"Alcance t\\351cnico de mejora" in drawn
+
+
+# --- R6: relleno completo de la card (fix round 1) ---
+# reportlab (pageCompression=0) escribe cada `re` precedido por su color
+# `rg`/`RG` (el más cercano por delante).
+_BOX_BG_RGB = (0.952941, 0.956863, 0.964706)      # #f3f4f6
+_BOX_BORDER_RGB = (0.898039, 0.905882, 0.921569)  # #e5e7eb (paleta real del módulo)
+
+
+def _scope_content_streams(data: bytes) -> list[bytes]:
+    """Streams de contenido por página (pageCompression=0; el logo a85 se excluye como en D1)."""
+    out = []
+    for m in re.finditer(rb"stream\r?\n(.*?)endstream", data, re.S):
+        raw = m.group(1)
+        if b"Tj" in raw and b"BT" in raw and not raw.rstrip().endswith(b"~>"):
+            out.append(raw)
+    return out
+
+
+def _rects_by_color(stream: bytes, rgb: tuple[float, float, float]) -> list[tuple[float, float, float, float, str]]:
+    """(x, y, w, h, op) de cada `re` del stream cuyo color rg/RG más cercano ≈ rgb (tol 0.001)."""
+    out = []
+    for rm in re.finditer(rb"([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re ([fS])", stream):
+        x, y, w, h = (float(v) for v in rm.groups()[:4])
+        cms = list(re.finditer(rb"([\d.]+) ([\d.]+) ([\d.]+) (rg|RG)", stream[: rm.start()]))
+        if not cms:
+            continue
+        col = tuple(float(v) for v in cms[-1].groups()[:3])
+        if all(abs(a - b) < 0.001 for a, b in zip(col, rgb)):
+            out.append((x, y, w, h, rm.group(5).decode()))
+    return out
+
+
+def test_scope_pdf_g1_relleno_coincide_con_el_borde_de_la_card():
+    data = build_scope_pdf(
+        "ALCANCE\n\n1. COSA (A01) — ALTO\n"
+        "Objetivo: corregir cosa.\n"
+        "· Revisar la ocurrencia en app.js:1 y aplicar la solución.\n"
+        "Estimación: 1 h · Prioridad: baja"
+    )
+    assert data[:5] == b"%PDF-"
+    streams = _scope_content_streams(data)
+    assert len(streams) == 1  # 1 página
+    stream = streams[0]
+    border = _rects_by_color(stream, _BOX_BORDER_RGB)
+    assert len(border) == 1 and border[0][4] == "S"  # el borde (S) es único
+    bg = _rects_by_color(stream, _BOX_BG_RGB)
+    assert bg
+    max_width = A4[0] - 2 * _MARGIN
+    for x, y, w, h, op in bg:
+        assert op == "f"
+        assert abs(x - _MARGIN) < 0.05
+        assert abs(w - max_width) < 0.05  # R6: el fondo llega al borde derecho (Fix 1)
+    bx, by, _bw, bh, _op = border[0]
+    ivals = sorted((y, y + h) for _x, y, _w, h, _op in bg)
+    assert abs(ivals[0][0] - by) < 0.05            # el primero arranca en el bottom del borde (Fix 3)
+    assert abs(ivals[-1][1] - (by + bh)) < 0.05    # el último llega al top del borde (Fix 2)
+    for (lo1, hi1), (lo2, _hi2) in zip(ivals, ivals[1:]):
+        assert lo2 - hi1 <= 0.05                   # sin huecos entre segmentos consecutivos
+
+
+def test_scope_pdf_g2_card_partida_contiguo_entre_paginas():
+    body = "\n".join(f"· línea {i} de prueba para forzar el salto de página" for i in range(1, 41))
+    data = build_scope_pdf(
+        "ALCANCE\n\n1. CARD LARGA (A01) — ALTO\nObjetivo: cosa.\n" + body +
+        "\nEstimación: 1 h · Prioridad: baja"
+    )
+    assert data[:5] == b"%PDF-"
+    assert len(re.findall(rb"/Type /Page\b", data)) >= 2
+    streams = _scope_content_streams(data)
+    assert len(streams) >= 2
+    max_width = A4[0] - 2 * _MARGIN
+    bg1 = _rects_by_color(streams[0], _BOX_BG_RGB)
+    bg2 = _rects_by_color(streams[1], _BOX_BG_RGB)
+    for bg in (bg1, bg2):
+        assert bg
+        for x, y, w, h, op in bg:
+            assert op == "f"
+            assert abs(x - _MARGIN) < 0.05
+            assert abs(w - max_width) < 0.05  # R6: ancho completo en ambas páginas (Fix 1)
+    ivals1 = sorted((y, y + h) for _x, y, _w, h, _op in bg1)
+    assert abs(ivals1[0][0] - _MARGIN) < 0.05  # pág. 1: el más bajo llega al margen inferior
+    for (lo1, hi1), (lo2, _hi2) in zip(ivals1, ivals1[1:]):
+        assert lo2 - hi1 <= 0.05  # pág. 1: contiguo, sin huecos > 0.05 pt (Fix 4 en el salto)
+    top2 = max(y + h for _x, y, _w, h, _op in bg2)
+    assert abs(top2 - (A4[1] - _MARGIN)) < 0.05  # pág. 2: el más alto llega al tope (Fix 4)

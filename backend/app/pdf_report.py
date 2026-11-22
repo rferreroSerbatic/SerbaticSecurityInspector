@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import os
 import re
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
@@ -209,32 +210,240 @@ def _draw_logo(c, y: float) -> None:
     c.drawImage(str(_LOGO), _MARGIN, y - _LOGO_H, width=_LOGO_W, height=_LOGO_H, mask="auto")
 
 
+# --- Reestilo del PDF de alcance (Fase 2c, G4) ---
+# Primera línea de card: «N. TÍTULO (VULN) — SEVERIDAD» (severidad opcional).
+_CARD_RE = re.compile(r"^(\d+)\.\s+(.+?)(?:\s+—\s+(CRÍTICO|ALTO|MEDIO|BAJO))?$")
+_SEV_WORD = {"CRÍTICO": "critical", "ALTO": "high", "MEDIO": "medium", "BAJO": "low"}
+_SEV_WORD_ES = {v: k for k, v in _SEV_WORD.items()}
+
+_CARD_PAD = 4 * mm
+_CARD_BAR = 1.6 * mm
+_CARD_TITLE_H = 6.2 * mm
+_CARD_CHIP_H = 7 * mm
+_CARD_EST_H = 5.5 * mm
+_CARD_GAP = 4 * mm
+
+
+def _parse_scope_text(text: str) -> tuple[list[str], list[dict]]:
+    """Parsea el texto del alcance en (cabecera, bloques).
+
+    - Cabecera: el primer bloque, si tiene ≤ 2 líneas y su primera línea no es
+      una card numerada (línea 1 = título, línea 2 = subtítulo).
+    - Card: primera línea ``N. TÍTULO (VULN) — SEVERIDAD`` + líneas de cuerpo.
+    - Plano: cualquier otro bloque (texto editado por el usuario) → párrafo.
+    """
+    raw = [b for b in re.split(r"\n\s*\n", text.strip()) if b.strip()]
+    blocks: list[dict] = []
+    start = 0
+    header: list[str] = []
+    if raw:
+        first = [ln for ln in raw[0].split("\n") if ln.strip()]
+        if len(first) <= 2 and not _CARD_RE.match(first[0].strip()):
+            header = first
+            start = 1
+    for blk in raw[start:]:
+        lines = [ln.strip() for ln in blk.split("\n") if ln.strip()]
+        m = _CARD_RE.match(lines[0])
+        if m:
+            blocks.append({
+                "kind": "card",
+                "num": m.group(1),
+                "title": m.group(2).strip(),
+                "severity": _SEV_WORD.get(m.group(3) or ""),
+                "body": lines[1:],
+            })
+        else:
+            blocks.append({"kind": "plain", "body": lines})
+    return header, blocks
+
+
 def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> bytes:
-    """Devuelve los bytes de un PDF A4 con la marca, ``title`` y el ``text`` del alcance."""
+    """Devuelve los bytes de un PDF A4 del alcance con layout estructurado (G4 2c).
+
+    El texto plano del usuario es la fuente: lo reconocible se estila
+    (cabecera centrada, cajas con chip de severidad a color y barra de
+    acento, línea de estimación con filete) y lo que no encaja se imprime
+    como párrafo plano (fallback gracioso). ``pageCompression=0``: los
+    tests inspeccionan los bytes.
+    """
     buf = io.BytesIO()
-    c = _canvas.Canvas(buf, pagesize=A4)
     width, height = A4
     max_width = width - 2 * _MARGIN
+    c = _canvas.Canvas(buf, pagesize=A4, pageCompression=0)
     y = height - _MARGIN
 
-    _draw_logo(c, y)
-    y -= _LOGO_H + 12 * mm
+    def page_deco(cnv) -> None:
+        """Páginas 2+: cabecera (title, izquierda) + pie («Página N» + marca)."""
+        cnv.saveState()
+        cnv.setFont("Helvetica", 8)
+        cnv.setFillColor(_TXT_SEC)
+        cnv.drawString(_MARGIN, height - 12 * mm, _winansi(title))
+        cnv.drawString(_MARGIN, 10 * mm, _winansi(f"Página {cnv.getPageNumber()}"))
+        cnv.drawRightString(width - _MARGIN, 10 * mm, "Serbatic Security Inspector")
+        cnv.restoreState()
 
-    c.setFillColor(_ACCENT)
-    c.rect(_MARGIN, y - 4.5 * mm, 2 * mm, 5.5 * mm, fill=1, stroke=0)
-    c.setFont("Helvetica-Bold", 14)
+    def new_page() -> None:
+        nonlocal y
+        c.showPage()
+        y = height - _MARGIN
+        page_deco(c)
+
+    def ensure(space: float) -> None:
+        nonlocal y
+        if y - space < _MARGIN:
+            new_page()
+
+    # --- Página 1: cabecera centrada (logo + título + subtítulo + filete) ---
+    c.drawImage(str(_LOGO), (width - _LOGO_W) / 2, y - _LOGO_H,
+                width=_LOGO_W, height=_LOGO_H, mask="auto")
+    y -= _LOGO_H + 10 * mm
+    header, blocks = _parse_scope_text(text)
+    c.setFont("Helvetica-Bold", 16)
     c.setFillColor(_TXT)
-    c.drawString(_MARGIN + 5 * mm, y, _winansi(title))
-    y -= 10 * mm
+    c.drawCentredString(width / 2, y, _winansi(header[0] if header else title))
+    y -= 8 * mm
+    if len(header) > 1:
+        c.setFont("Helvetica", 10)
+        c.setFillColor(_TXT_SEC)
+        c.drawCentredString(width / 2, y, _winansi(header[1]))
+        y -= 5 * mm
+    c.setFillColor(_ACCENT)
+    c.rect(width / 2 - 15 * mm, y - 4.5 * mm, 30 * mm, 0.8 * mm, fill=1, stroke=0)
+    y -= 12 * mm
 
-    for line in _wrap_lines(c, text, "Helvetica", _TEXT_SIZE, max_width):
-        if y < _MARGIN:
-            c.showPage()
-            y = height - _MARGIN
-        c.setFont("Helvetica", _TEXT_SIZE)
-        c.setFillColor(_TXT)
-        c.drawString(_MARGIN, y, _winansi(line))
-        y -= _LEADING
+    bar = _CARD_BAR
+    inner_w = max_width - bar - 2 * _CARD_PAD
+    text_x = _MARGIN + bar + _CARD_PAD
+
+    def draw_card(num: str, card_title: str, severity: str | None, body: list[str]) -> None:
+        """Card de alcance: caja (#f3f4f6) con barra de acento de severidad, chip,
+        título en negrita, cuerpo y línea de estimación con filete. Puede partir
+        de página: la caja continua (fondo + acento por segmento)."""
+        nonlocal y
+        sev_color = _SEV.get(severity, _ACCENT) if severity else _ACCENT
+
+        def seg(bottom: float, h: float) -> None:
+            c.setFillColor(_BOX_BG)
+            c.rect(_MARGIN, bottom, max_width, h, fill=1, stroke=0)  # R6: fondo hasta el borde (no max_width - bar)
+            c.setFillColor(sev_color)
+            c.rect(_MARGIN, bottom, bar, h, fill=1, stroke=0)
+
+        # Filas (h, draw): el slot de una fila con baseline y es [y + 2mm, y + 2mm - h].
+        rows: list[tuple[float, Callable[[], None]]] = []
+        if severity:
+            label = _SEV_WORD_ES[severity]
+            chip_w = c.stringWidth(label, "Helvetica-Bold", 8) + 4 * mm
+
+            def chip_row() -> None:
+                c.setFillColor(sev_color)
+                c.rect(text_x, y - 3.5 * mm, chip_w, 4.5 * mm, fill=1, stroke=0)
+                c.setFillColor(_WHITE)
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(text_x + 2 * mm, y - 2 * mm, _winansi(label))
+
+            rows.append((_CARD_CHIP_H, chip_row))
+
+        for wl in _wrap_lines(c, f"{num}. {card_title}", "Helvetica-Bold", 11, inner_w):
+            def title_row(wl=wl) -> None:
+                c.setFont("Helvetica-Bold", 11)
+                c.setFillColor(_TXT)
+                c.drawString(text_x, y, _winansi(wl))
+            rows.append((_CARD_TITLE_H, title_row))
+
+        for raw_line in body:
+            stripped = raw_line.strip()
+            if stripped.startswith("Estimación:"):
+                rest = _winansi(stripped[len("Estimación:"):].strip())
+
+                def est_row(rest=rest) -> None:
+                    c.setFont("Helvetica-Bold", 9.5)
+                    c.setFillColor(_TXT)
+                    c.drawString(text_x, y, "Estimación:")
+                    x2 = text_x + c.stringWidth("Estimación:", "Helvetica-Bold", 9.5) + 1.5 * mm
+                    c.setFont("Helvetica", 9.5)
+                    c.setFillColor(_TXT_SEC)
+                    c.drawString(x2, y, rest)
+                    c.setStrokeColor(_BOX_BORDER)
+                    c.setLineWidth(0.3)
+                    c.line(text_x, y - 1.5 * mm, text_x + inner_w, y - 1.5 * mm)
+
+                rows.append((_CARD_EST_H, est_row))
+                continue
+            if stripped.startswith("Objetivo:"):
+                rest = stripped[len("Objetivo:"):].strip()
+                label_w = c.stringWidth("Objetivo:", "Helvetica-Bold", 9)
+                parts = _wrap_lines(c, rest, "Helvetica", _TEXT_SIZE,
+                                    max(inner_w - label_w - 2 * mm, 10 * mm)) or [""]
+
+                def obj_first(first=parts[0]) -> None:
+                    c.setFont("Helvetica-Bold", 9)
+                    c.setFillColor(_ACCENT)
+                    c.drawString(text_x, y, "Objetivo:")
+                    x2 = text_x + label_w + 2 * mm
+                    c.setFont("Helvetica", _TEXT_SIZE)
+                    c.setFillColor(_TXT)
+                    c.drawString(x2, y, _winansi(first))
+
+                rows.append((_LEADING, obj_first))
+                for rp in parts[1:]:
+                    def obj_cont(rp=rp) -> None:
+                        c.setFont("Helvetica", _TEXT_SIZE)
+                        c.setFillColor(_TXT)
+                        c.drawString(text_x, y, _winansi(rp))
+                    rows.append((_LEADING, obj_cont))
+                continue
+            for wl in _wrap_lines(c, stripped, "Helvetica", _TEXT_SIZE, inner_w):
+                def body_row(wl=wl) -> None:
+                    c.setFont("Helvetica", _TEXT_SIZE)
+                    c.setFillColor(_TXT)
+                    c.drawString(text_x, y, _winansi(wl))
+                rows.append((_LEADING, body_row))
+
+        total_h = _CARD_PAD * 2 + sum(h for h, _ in rows)
+        box_top = y
+        if total_h <= box_top - _MARGIN:
+            c.setStrokeColor(_BOX_BORDER)
+            c.setLineWidth(0.5)
+            c.rect(_MARGIN, box_top - total_h, max_width, total_h, fill=0, stroke=1)
+        y = box_top - _CARD_PAD  # padding superior de la caja
+        first_row = True
+        for h, draw in rows:
+            if y - h + 2 * mm < _MARGIN:
+                if not first_row:
+                    seg(_MARGIN, y + 2 * mm - _MARGIN)  # R6: contigua al slot previo (bottom = y + 2mm)
+                new_page()
+                y -= 2 * mm  # el slot empieza en el borde superior de la página
+                first_row = False  # R6: tras el salto, el tope ya es el margen (sin extensión)
+            ext = 2 * mm if first_row else 0  # R6: el primer slot pinta hasta box_top
+            seg(y + 2 * mm - h, h + ext)  # fondo + acento del slot
+            draw()
+            y -= h
+            first_row = False
+        bottom_pad = min(_CARD_PAD, y - _MARGIN)
+        if bottom_pad > 0:
+            seg(y - bottom_pad, bottom_pad + 2 * mm)  # R6: contigua al último slot (top = y + 2mm)
+            y -= bottom_pad
+        y -= _CARD_GAP
+
+    def draw_plain(lines: list[str]) -> None:
+        nonlocal y
+        for ln in lines:
+            for wl in _wrap_lines(c, ln, "Helvetica", _TEXT_SIZE, max_width):
+                if y < _MARGIN:
+                    new_page()
+                c.setFont("Helvetica", _TEXT_SIZE)
+                c.setFillColor(_TXT)
+                c.drawString(_MARGIN, y, _winansi(wl))
+                y -= _LEADING
+        y -= 2 * mm
+
+    for blk in blocks:
+        if blk["kind"] == "card":
+            # Sin cabecera de card huérfana: chip + título + 1 línea deben caber.
+            ensure(_CARD_PAD * 2 + _CARD_CHIP_H + _CARD_TITLE_H + _LEADING)
+            draw_card(blk["num"], blk["title"], blk["severity"], blk["body"])
+        else:
+            draw_plain(blk["body"])
     c.save()
     return buf.getvalue()
 
