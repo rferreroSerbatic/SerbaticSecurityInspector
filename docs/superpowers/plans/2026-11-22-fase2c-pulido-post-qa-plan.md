@@ -822,6 +822,7 @@ Sustituir la función actual `build_scope_pdf` por la siguiente (y añadir encim
 # Primera línea de card: «N. TÍTULO (VULN) — SEVERIDAD» (severidad opcional).
 _CARD_RE = re.compile(r"^(\d+)\.\s+(.+?)(?:\s+—\s+(CRÍTICO|ALTO|MEDIO|BAJO))?$")
 _SEV_WORD = {"CRÍTICO": "critical", "ALTO": "high", "MEDIO": "medium", "BAJO": "low"}
+_SEV_WORD_ES = {v: k for k, v in _SEV_WORD.items()}  # chip en español (ruling: copy ES)
 
 _CARD_PAD = 4 * mm
 _CARD_BAR = 1.6 * mm
@@ -931,14 +932,14 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
 
         def seg(bottom: float, h: float) -> None:
             c.setFillColor(_BOX_BG)
-            c.rect(_MARGIN, bottom, max_width - bar, h, fill=1, stroke=0)
+            c.rect(_MARGIN, bottom, max_width, h, fill=1, stroke=0)  # R6: fondo hasta el borde (no max_width - bar)
             c.setFillColor(sev_color)
             c.rect(_MARGIN, bottom, bar, h, fill=1, stroke=0)
 
         # Filas (h, draw): el slot de una fila con baseline y es [y + 2mm, y + 2mm - h].
         rows: list[tuple[float, Callable[[], None]]] = []
         if severity:
-            label = severity.upper()
+            label = _SEV_WORD_ES[severity]
             chip_w = c.stringWidth(label, "Helvetica-Bold", 8) + 4 * mm
 
             def chip_row() -> None:
@@ -1017,16 +1018,18 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
         for h, draw in rows:
             if y - h + 2 * mm < _MARGIN:
                 if not first_row:
-                    seg(_MARGIN, y - _MARGIN)  # la caja llega al borde inferior
+                    seg(_MARGIN, y + 2 * mm - _MARGIN)  # R6: contigua al slot previo (bottom = y + 2mm)
                 new_page()
                 y -= 2 * mm  # el slot empieza en el borde superior de la página
-            seg(y + 2 * mm - h, h)  # fondo + acento del slot
+                first_row = False  # R6: tras el salto, el tope ya es el margen (sin extensión)
+            ext = 2 * mm if first_row else 0  # R6: el primer slot pinta hasta box_top
+            seg(y + 2 * mm - h, h + ext)  # fondo + acento del slot
             draw()
             y -= h
             first_row = False
         bottom_pad = min(_CARD_PAD, y - _MARGIN)
         if bottom_pad > 0:
-            seg(y - bottom_pad, bottom_pad)
+            seg(y - bottom_pad, bottom_pad + 2 * mm)  # R6: contigua al último slot (top = y + 2mm)
             y -= bottom_pad
         y -= _CARD_GAP
 
