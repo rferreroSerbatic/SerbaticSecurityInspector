@@ -96,7 +96,7 @@ Sin instalar nada local (no hace falta Node ni Python):
 docker compose up --build
 ```
 
-→ http://localhost:5173 (UI; nginx proxyea `/api/` al backend, con SSE en streaming). API directa (opcional): http://localhost:8000.
+→ http://localhost:5173 (UI; nginx proxyea `/api/` al backend, con SSE en streaming). API directa (opcional): http://localhost:8001.
 
 - `Dockerfile`: front (build de Vite → nginx). `Dockerfile.backend`: FastAPI/uvicorn :8000 con `samples/`.
 - `./workspace` va montado como volumen: los clones git (workspace/repos/) sobreviven a reinicios del contenedor.

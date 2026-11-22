@@ -19,7 +19,9 @@ services:
       # Clones git (workspace/repos/) persistentes en el host.
       - ./workspace:/workspace
     ports:
-      - "8000:8000"
+      # 8001 para no chocar con servicios locales en 8000 (uvicorn dev, etc.).
+      # Opcional: el front ya proxyea /api/ al backend.
+      - "8001:8000"
   front:
     build:
       context: .
