@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    input, button { margin: 4px 0; padding: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Iniciar sesión</h1>
+  <form id="login-form">
+    <input type="text" id="user" placeholder="Usuario">
+    <input type="password" id="pass" placeholder="Contraseña">
+    <button type="submit">Entrar</button>
+  </form>
+  <p id="msg"></p>
+  <div id="secret" style="display:none">
+    <h2>Zona privada</h2>
+    <p>Contrato de la empresa: 45.000 € anuales con Acme Corp.</p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
