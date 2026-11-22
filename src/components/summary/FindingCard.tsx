@@ -15,7 +15,6 @@ export function FindingCard({
   expanded,
   onToggleSelect,
   onToggleExpand,
-  demoHref,
 }: {
   finding: Finding
   vuln: Vuln
@@ -23,8 +22,6 @@ export function FindingCard({
   expanded: boolean
   onToggleSelect: () => void
   onToggleExpand: () => void
-  /** URL de la sección de la demo ejecutable (p. ej. http://localhost:3000#A03). */
-  demoHref?: string
 }) {
   return (
     <article data-testid="finding-card" className={`rounded-md border ${CARD_STYLES[finding.severity]}`}>
@@ -79,28 +76,18 @@ export function FindingCard({
             {expanded ? '▾' : '▸'}
           </span>
         </button>
-        {/* QA-iter 6: CVE representativo de la categoría, enlazado a su ficha.
-            Fuera del <button> (un enlace anidado sería HTML inválido). */}
+        {/* QA-iter 6: CVE de la categoría, enlazado a su ficha. Fuera del
+            <button> (un enlace anidado sería HTML inválido). QA-iter 7: más
+            protagonismo (chip cian en lugar de texto tenue). */}
         <a
           href={`https://www.cve.org/CVERecord?id=${vuln.cve}`}
           target="_blank"
           rel="noreferrer"
           title={`Abrir la ficha de ${vuln.cve} en cve.org`}
-          className="shrink-0 font-mono text-[10px] tracking-wide text-ink-faint transition-colors duration-200 hover:text-neon-cyan"
+          className="shrink-0 rounded border border-neon-cyan/35 bg-neon-cyan/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-neon-cyan/80 transition-colors duration-200 hover:border-neon-cyan hover:bg-neon-cyan/15 hover:text-neon-cyan"
         >
           {vuln.cve}
         </a>
-        {demoHref && (
-          <a
-            href={demoHref}
-            target="_blank"
-            rel="noreferrer"
-            title="Abrir la web de ejemplo en la sección de esta vulnerabilidad"
-            className="shrink-0 rounded border border-neon-cyan/40 px-2 py-1 font-mono text-[10px] tracking-wide text-neon-cyan transition-colors duration-200 hover:bg-neon-cyan/10"
-          >
-            🔎 ver en la demo
-          </a>
-        )}
       </div>
 
       {expanded && (

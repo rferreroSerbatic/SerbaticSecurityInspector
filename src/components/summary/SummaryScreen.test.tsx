@@ -78,7 +78,6 @@ const renderScreen = (
     onNewAudit?: () => void
     onBack?: () => void
   } = {},
-  demoBaseUrl?: string,
   projectName?: string,
 ) =>
   render(
@@ -90,17 +89,19 @@ const renderScreen = (
       onGenerateScope={handlers.onGenerateScope ?? (() => {})}
       onNewAudit={handlers.onNewAudit ?? (() => {})}
       onBack={handlers.onBack ?? (() => {})}
-      demoBaseUrl={demoBaseUrl}
       projectName={projectName}
     />,
   )
 
 test('cada hallazgo muestra el CVE de su categoría con enlace a su ficha', () => {
-  // QA-iter 6: CVE representativo de la categoría, enlazado a cve.org.
+  // QA-iter 6: CVE de la categoría, enlazado a cve.org.
   renderScreen()
   const link = screen.getByRole('link', { name: 'CVE-2024-38816' })
   expect(link).toHaveAttribute('href', 'https://www.cve.org/CVERecord?id=CVE-2024-38816')
   expect(link).toHaveAttribute('target', '_blank')
+  // QA-iter 7: el CVE con más protagonismo (chip cian, no texto tenue).
+  expect(link).toHaveClass('border-neon-cyan/35')
+  expect(link).toHaveClass('text-neon-cyan/80')
   // Otros hallazgos de la misma lista: sus CVEs también son enlaces.
   expect(screen.getByRole('link', { name: 'CVE-2021-44228' })).toHaveAttribute(
     'href',
@@ -274,21 +275,6 @@ test('«← Volver» llama a onBack', () => {
   expect(onBack).toHaveBeenCalled()
 })
 
-// --- QA-iter 1 (usuario): enlaces «ver en la demo» a la web de ejemplo ejecutable ---
-test('con demoBaseUrl, cada hallazgo enlaza a su sección de la demo', () => {
-  renderScreen(base, [], {}, 'http://localhost:3000')
-  const links = screen.getAllByRole('link', { name: /ver en la demo/i })
-  expect(links).toHaveLength(4)
-  expect(links[0]).toHaveAttribute('href', 'http://localhost:3000#A01')
-  expect(links.some(l => l.getAttribute('href') === 'http://localhost:3000#A03')).toBe(true)
-  expect(links.some(l => l.getAttribute('href') === 'http://localhost:3000#A02')).toBe(true)
-})
-
-test('sin demoBaseUrl no hay enlaces de demo (proyectos sin web de ejemplo)', () => {
-  renderScreen()
-  expect(screen.queryAllByRole('link', { name: /ver en la demo/i })).toHaveLength(0)
-})
-
 test('GENERAR ALCANCE llama a onGenerateScope y NUEVA AUDITORÍA llama a onNewAudit', () => {
   const onGenerateScope = vi.fn()
   const onNewAudit = vi.fn()
@@ -304,7 +290,7 @@ test('GENERAR ALCANCE llama a onGenerateScope y NUEVA AUDITORÍA llama a onNewAu
 // --- Task 8: informe PDF completo (endpoint de la Task 6) + tag de duplicados ---
 afterEach(() => vi.unstubAllGlobals())
 
-test('INFORME PDF: POST a /api/reports/full-pdf con {projectName, profile, meta, findings} y descarga', async () => {
+test('EXPORTAR RESULTADOS A PDF: POST a /api/reports/full-pdf y descarga (QA-iter 7: nuevo nombre)', async () => {
   const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
     new Response('%PDF-1.4 fake', { status: 200 }),
   )
@@ -317,13 +303,16 @@ test('INFORME PDF: POST a /api/reports/full-pdf con {projectName, profile, meta,
     ...base,
     profile: { stack: 'node', framework: 'express' },
   }
-  renderScreen(withProfile, [], {}, undefined, 'Mi Proyecto')
+  renderScreen(withProfile, [], {}, 'Mi Proyecto')
 
   // Timers falsos: jsdom no implementa `download` y tras el click del ancla
   // programaría una navegación «no implementada» vía setTimeout (mismo
   // patrón que ScopeModal.test con el PDF del alcance).
   vi.useFakeTimers()
-  fireEvent.click(screen.getByRole('button', { name: /informe pdf/i }))
+  const btn = screen.getByRole('button', { name: /exportar resultados a pdf/i })
+  // QA-iter 7: el botón se ve «activo» en hover (variante accent cian).
+  expect(btn).toHaveClass('border-neon-cyan/50')
+  fireEvent.click(btn)
   await act(async () => {})
   vi.useRealTimers()
 
@@ -340,17 +329,17 @@ test('INFORME PDF: POST a /api/reports/full-pdf con {projectName, profile, meta,
   expect(createObjectURL).toHaveBeenCalled()
 })
 
-test('INFORME PDF está deshabilitado sin hallazgos', () => {
+test('EXPORTAR RESULTADOS A PDF está deshabilitado sin hallazgos', () => {
   const empty: AnalysisProgress = { ...base, findings: [] }
   renderScreen(empty)
-  expect(screen.getByRole('button', { name: /informe pdf/i })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /exportar resultados a pdf/i })).toBeDisabled()
 })
 
-test('INFORME PDF muestra el error sin lanzar cuando el backend devuelve 500', async () => {
+test('EXPORTAR RESULTADOS A PDF muestra el error sin lanzar cuando el backend devuelve 500', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })))
   renderScreen()
 
-  fireEvent.click(screen.getByRole('button', { name: /informe pdf/i }))
+  fireEvent.click(screen.getByRole('button', { name: /exportar resultados a pdf/i }))
   await act(async () => {})
 
   expect(screen.getByText('No se pudo generar el informe (¿backend caído?)')).toBeInTheDocument()

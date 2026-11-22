@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react'
 
 export interface NeonButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'ghost'
+  variant?: 'primary' | 'outline' | 'ghost' | 'accent'
 }
 
 const variantClasses: Record<NonNullable<NeonButtonProps['variant']>, string> = {
@@ -10,6 +10,9 @@ const variantClasses: Record<NonNullable<NeonButtonProps['variant']>, string> = 
   outline: 'border border-neon-magenta font-bold text-neon-magenta hover:bg-neon-magenta/10',
   ghost:
     'border border-ink-faint font-semibold text-ink-faint hover:border-ink-dim hover:text-ink-dim',
+  // QA-iter 7: se ve «activo» en hover (cian de marca + glow).
+  accent:
+    'border border-neon-cyan/50 font-semibold text-neon-cyan/80 hover:border-neon-cyan hover:bg-neon-cyan/10 hover:text-neon-cyan hover:shadow-[0_0_14px_rgba(0,229,255,0.25)]',
 }
 
 export function NeonButton({

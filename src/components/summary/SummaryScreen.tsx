@@ -37,7 +37,6 @@ export function SummaryScreen({
   onGenerateScope,
   onNewAudit,
   onBack,
-  demoBaseUrl,
   projectName,
 }: {
   analysis: AnalysisProgress
@@ -47,8 +46,6 @@ export function SummaryScreen({
   onGenerateScope: () => void
   onNewAudit: () => void
   onBack: () => void
-  /** Base de la web de ejemplo ejecutable (solo proyectos de ejemplo con demo). */
-  demoBaseUrl?: string
   /** Nombre del proyecto analizado (cabecera del informe PDF). */
   projectName?: string
 }) {
@@ -226,7 +223,6 @@ export function SummaryScreen({
                   expanded={expandedIds.includes(f.id)}
                   onToggleSelect={() => onToggleFinding(f.id)}
                   onToggleExpand={() => toggleExpand(f.id)}
-                  demoHref={demoBaseUrl ? `${demoBaseUrl}#${f.vulnId}` : undefined}
                 />
               ) : null
             })
@@ -250,8 +246,8 @@ export function SummaryScreen({
             <NeonButton variant="ghost" onClick={onNewAudit}>
               NUEVA AUDITORÍA
             </NeonButton>
-            <NeonButton variant="ghost" onClick={downloadReport} disabled={total === 0 || reportBusy}>
-              {reportBusy ? 'GENERANDO…' : 'INFORME PDF ▸'}
+            <NeonButton variant="accent" onClick={downloadReport} disabled={total === 0 || reportBusy}>
+              {reportBusy ? 'GENERANDO…' : 'EXPORTAR RESULTADOS A PDF'}
             </NeonButton>
             <NeonButton onClick={onGenerateScope} disabled={selectedFindingIds.length === 0}>
               GENERAR ALCANCE DE MEJORA ▸
