@@ -194,3 +194,17 @@ test('interpolación: progreso fino entre agent:start y agent:done', async () =>
   expect(last.agents[0]).toMatchObject({ status: 'done', progress: 100 })
   cancel()
 })
+
+// --- Task 5 (Fase 2d): la guía de explotación viaja dentro del finding (contrato aditivo) ---
+test('run:done: los findings con guide pasan tal cual al estado (contrato aditivo)', async () => {
+  okFetch()
+  const seen: AnalysisProgress[] = []
+  createLiveAnalysisService({ tickMs: 10 }).run(RUN_OPTS, (p) => seen.push(p))
+  await vi.waitFor(() => expect(FakeEventSource.instances.length).toBe(1))
+  const es = FakeEventSource.instances[0]
+  es.emit({ type: 'run:done', t: 1, findings: [{ ...A01, guide: '## RESUMEN\ng' }],
+           meta: { files: 12, lines: 340, durationMin: 1 } })
+  const last = seen[seen.length - 1]
+  expect(last.status).toBe('done')
+  expect(last.findings[0].guide).toBe('## RESUMEN\ng')
+})

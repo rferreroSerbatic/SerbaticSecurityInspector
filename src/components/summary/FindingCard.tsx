@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import type { Finding, Severity, Vuln } from '../../types'
+import { NeonButton } from '../ui/NeonButton'
 import { SeverityBadge } from '../ui/SeverityBadge'
+import { ExploitGuideModal } from './ExploitGuideModal'
 
 const CARD_STYLES: Record<Severity, string> = {
   critical: 'border-sev-critical/60 bg-sev-critical/5 shadow-[0_0_14px_rgba(255,45,149,0.18)]',
@@ -23,6 +26,8 @@ export function FindingCard({
   onToggleSelect: () => void
   onToggleExpand: () => void
 }) {
+  const [guideOpen, setGuideOpen] = useState(false)
+
   return (
     <article data-testid="finding-card" className={`rounded-md border ${CARD_STYLES[finding.severity]}`}>
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
@@ -112,6 +117,20 @@ export function FindingCard({
               <span className="font-bold text-neon-cyan">SOLUCIÓN ·</span> {finding.solution}
             </p>
           </div>
+          {/* Fase 2d (ruling «siempre modo real»): sin guía real → sin botón. */}
+          {finding.guide && (
+            <NeonButton
+              variant="outline"
+              data-testid="exploit-guide-btn"
+              className="self-start"
+              onClick={() => setGuideOpen(true)}
+            >
+              CÓMO EXPLOTAR ▸
+            </NeonButton>
+          )}
+          {guideOpen && finding.guide && (
+            <ExploitGuideModal finding={finding} vuln={vuln} onClose={() => setGuideOpen(false)} />
+          )}
         </div>
       )}
     </article>

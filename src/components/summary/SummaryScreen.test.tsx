@@ -68,6 +68,16 @@ const base: AnalysisProgress = {
   meta: { files: 128, lines: 3412, durationMin: 14 },
 }
 
+// Task 5 (Fase 2d): A01-1 con guía real (ruling «siempre modo real»: el mock no lleva guía).
+const withGuide: AnalysisProgress = {
+  ...base,
+  findings: findings.map(f =>
+    f.id === 'A01-1'
+      ? { ...f, guide: '## RESUMEN\nSe itera el id sin comprobar propietario.\n## PAYLOAD DE EJEMPLO\n```\nGET /api/users/1024\n```' }
+      : f,
+  ),
+}
+
 const renderScreen = (
   analysis: AnalysisProgress = base,
   selectedFindingIds: string[] = [],
@@ -450,4 +460,23 @@ test('MARCAR TODOS está en la fila de control superior (no en el footer) y con 
   const btn = screen.getByRole('button', { name: /marcar todos/i })
   expect(btn.closest('footer')).not.toBeInTheDocument()
   expect(btn).toHaveClass('border')
+})
+
+// --- Task 5 (Fase 2d): botón «CÓMO EXPLOTAR» + modal de guía (solo con guía real) ---
+test('botón CÓMO EXPLOTAR solo en hallazgos con guía (ruling: siempre modo real)', () => {
+  renderScreen() // fixture base: sin guide → sin botón
+  expect(screen.queryAllByTestId('exploit-guide-btn')).toHaveLength(0)
+  cleanup()
+  renderScreen(withGuide) // A01-1 (crítico) expandido por defecto → 1 botón
+  expect(screen.getAllByTestId('exploit-guide-btn')).toHaveLength(1)
+})
+
+test('abre el modal de la guía y se cierra con CERRAR', () => {
+  renderScreen(withGuide)
+  fireEvent.click(screen.getByTestId('exploit-guide-btn'))
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(screen.getByText('RESUMEN')).toBeInTheDocument()
+  expect(screen.getByText('GET /api/users/1024')).toBeInTheDocument()
+  fireEvent.click(screen.getByTestId('guide-close'))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
