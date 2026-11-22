@@ -1,31 +1,10 @@
 # Samples — proyectos de ejemplo
 
-Proyectos sobre los que el motor de análisis (Fase 2a) hace su test de regresión.
+Cada **carpeta** copiada aquí se convierte automáticamente en un proyecto de
+ejemplo en la app (aparece en la lista de proyectos al arrancar el backend,
+con el scope completo de la carpeta). No hay que registrar nada: el backend
+escanea `samples/` en cada arranque.
 
-## miniapp (incluida en el repo)
-
-API Express pequeña, sin dependencias nativas, con **10 vulnerabilidades sembradas,
-una por categoría** OWASP Top 10 (A01–A10). El ground truth está en
-`samples/miniapp/expected-findings.json` (1 entrada por categoría, `file` relativo).
-
-Arranque:
-
-```
-cd samples/miniapp
-npm install
-npm start
-```
-
-Escucha en `http://localhost:3000` (o `PORT` en el entorno).
-
-## dvwa (se clona; gitignored)
-
-DVWA (Damn Vulnerable Web Application) de digininja. Desde el root del repo:
-
-```
-git clone --depth 1 https://github.com/digininja/DVWA samples/dvwa
-```
-
-DVWA no necesita arrancar para el análisis: el scope del escáner son solo
-`vulnerabilities/` e `include/`. La carpeta `samples/dvwa/` está gitignored;
-si no existe, `GET /api/projects` muestra solo miniapp (sin error).
+> La miniapp de antes (demo Express + ground truth) se eliminó a petición del
+> usuario (QA-iter 7, 2026-11-22). Los demos que se quieran dejar se copian
+> como carpetas de proyecto directamente en esta carpeta.

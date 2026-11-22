@@ -544,17 +544,23 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                      _winansi(f"{vid} · {VULN_NAMES.get(vid, vid).upper()} ({n})"))
         y -= 7 * mm
         if cve:
-            # QA-iter 6: CVE representativo con enlace clicable a su ficha en cve.org.
-            c.setFont("Helvetica", 8)
-            prefix = _winansi("CVE representativo: ")
-            c.setFillColor(_TXT_SEC)
-            c.drawString(_MARGIN + 5 * mm, y, prefix)
-            x2 = _MARGIN + 5 * mm + c.stringWidth(prefix, "Helvetica", 8)
+            # QA-iter 6/7: CVE de la categoría como enlace a su ficha en cve.org,
+            # sin prefijo «representativo»: color de acento + subrayado, con el
+            # rectángulo del link pegado al texto (el puntero aparece sobre el
+            # texto visible, no sobre el aire de la línea siguiente).
+            c.setFont("Helvetica", 9)
             c.setFillColor(_ACCENT)
-            c.drawString(x2, y, cve)
+            c.drawString(_MARGIN + 5 * mm, y, cve)
+            w = c.stringWidth(cve, "Helvetica", 9)
+            c.setStrokeColor(_ACCENT)
+            c.setLineWidth(0.4)
+            c.line(_MARGIN + 5 * mm, y - 1 * mm, _MARGIN + 5 * mm + w, y - 1 * mm)
             c.linkURL(
                 f"https://www.cve.org/CVERecord?id={cve}",
-                (x2, y - 1.5 * mm, c.stringWidth(cve, "Helvetica", 8), 3.5 * mm),
+                # reportlab espera esquinas (lx, ly, ux, uy), no (x, y, w, h):
+                # con w/h el rect queda con área negativa y el visor lo
+                # normaliza a una lámina invisible (QA-iter 7).
+                (_MARGIN + 5 * mm, y - 1.2 * mm, _MARGIN + 5 * mm + w, y + 2.4 * mm),
             )
             y -= _LEADING
 
@@ -619,15 +625,22 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                   if key in meta and meta[key] is not None]
     if meta_lines:
         n = len(meta_lines)
-        box_bottom = y - n * _LEADING - 4 * mm
+        # QA-iter 7: texto centrado verticalmente en la caja (métricas de
+        # Helvetica 10 pt: ascensor 7.18 pt, descensor 2.07 pt). Antes la primera
+        # línea quedaba a 2 mm del tope (el ascensor salía de la caja) y había
+        # ~7 mm de fondo vacío en la base.
+        _asc, _desc = 7.18, 2.07  # pt
+        _pad = 7.0  # pt ≈ 2.5 mm
+        box_h = (n - 1) * _LEADING + _asc + _desc + 2 * _pad
+        box_bottom = y - box_h
         c.setFillColor(_BOX_BG)
         c.setStrokeColor(_BOX_BORDER)
         c.setLineWidth(0.5)
-        c.rect(_MARGIN, box_bottom, max_width, y - box_bottom, fill=1, stroke=1)
+        c.rect(_MARGIN, box_bottom, max_width, box_h, fill=1, stroke=1)
         c.setFont("Helvetica", _TEXT_SIZE)
         c.setFillColor(_TXT)
         for i, m in enumerate(meta_lines):
-            c.drawString(_MARGIN + 3 * mm, y - 2 * mm - i * _LEADING, _winansi(m))
+            c.drawString(_MARGIN + 3 * mm, y - _pad - _asc - i * _LEADING, _winansi(m))
         y = box_bottom
 
     # Barra de distribución de severidades + leyenda (solo si hay hallazgos)

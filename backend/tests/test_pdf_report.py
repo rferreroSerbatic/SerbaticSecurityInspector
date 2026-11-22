@@ -332,16 +332,20 @@ def _scope_content_streams(data: bytes) -> list[bytes]:
 
 
 def _rects_by_color(stream: bytes, rgb: tuple[float, float, float]) -> list[tuple[float, float, float, float, str]]:
-    """(x, y, w, h, op) de cada `re` del stream cuyo color rg/RG más cercano ≈ rgb (tol 0.001)."""
+    """(x, y, w, h, op) de cada `re` del stream cuyo color más cercano ≈ rgb (tol 0.001).
+    ops: f (solo relleno), S (solo trazo), B (relleno + trazo, ej. caja de meta del informe;
+    ahí el color relevante es el último `rg`, porque reportlab escribe el `RG` después)."""
     out = []
-    for rm in re.finditer(rb"([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re ([fS])", stream):
+    for rm in re.finditer(rb"([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re ([fSB])", stream):
         x, y, w, h = (float(v) for v in rm.groups()[:4])
-        cms = list(re.finditer(rb"([\d.]+) ([\d.]+) ([\d.]+) (rg|RG)", stream[: rm.start()]))
+        op = rm.group(5).decode()
+        pat = rb"([\d.]+) ([\d.]+) ([\d.]+) rg\b" if op == "B" else rb"([\d.]+) ([\d.]+) ([\d.]+) (?:rg|RG)"
+        cms = list(re.finditer(pat, stream[: rm.start()]))
         if not cms:
             continue
         col = tuple(float(v) for v in cms[-1].groups()[:3])
         if all(abs(a - b) < 0.001 for a, b in zip(col, rgb)):
-            out.append((x, y, w, h, rm.group(5).decode()))
+            out.append((x, y, w, h, op))
     return out
 
 
@@ -456,17 +460,51 @@ def test_report_pdf_titulo_principal_centrado():
 
 
 def test_report_pdf_categoria_con_cve_y_enlace_a_su_ficha():
-    """QA-iter 6: cada categoría del informe muestra su CVE representativo como
-    enlace clicable a su ficha en cve.org (los ids del mapeo son los mismos
-    que src/data/owasp.ts)."""
+    """QA-iter 6/7: cada categoría del informe muestra su CVE (id real, sin el
+    prefijo «representativo») como enlace clicable a su ficha en cve.org, con el
+    rectángulo del link pegado al texto (el puntero debe aparecer sobre el texto
+    visible, no sobre el aire de la siguiente línea)."""
     f = _finding("A03", 4, title="SQL injection en get_orders()")
     data = build_report_pdf("p", {}, {}, [f])
     assert data[:5] == b"%PDF-"
+    assert b"CVE representativo" not in data  # QA-iter 7: sin prefijo
     drawn = _drawn_strings(data)
-    assert b"CVE representativo: " in drawn
     assert b"CVE-2021-44228" in drawn
     assert b"https://www.cve.org/CVERecord?id=CVE-2021-44228" in data
     assert b"/Subtype /Link" in data
+    # El rectángulo del link abarca el texto (subrayado incluido), no la línea de abajo.
+    triples = _drawn_triples(data)
+    y_t = [y for _x, y, t in triples if t == b"CVE-2021-44228"]
+    assert len(y_t) == 1
+    rect = re.search(rb"/Rect\s*[\(\[]\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*[\)\]]", data)
+    assert rect is not None
+    _x1, y1, _x2, y2 = (float(g) for g in rect.groups())
+    assert abs(y1 - (y_t[0] - 1.2 * mm)) < 1  # borde inferior: justo bajo el subrayado
+    assert abs(y2 - (y_t[0] + 2.4 * mm)) < 1  # borde superior: justo bajo el cuerpo
+
+
+def test_report_pdf_caja_de_meta_centrada_sobre_su_fondo():
+    """QA-iter 7: las líneas de la caja de datos de la portada quedan centradas
+    verticalmente sobre su fondo gris (pre-fix: el texto apretado al tope y ~6 mm
+    de fondo vacío en la base de la caja)."""
+    meta = {"files": 13, "lines": 233, "durationMin": 1, "model": "qwen3.8-fp8",
+            "totalTokens": 2487, "avgTps": 77.3}
+    data = build_report_pdf("p", {}, meta, [])
+    assert data[:5] == b"%PDF-"
+    streams = _scope_content_streams(data)
+    assert len(streams) == 1
+    box = _rects_by_color(streams[0], _BOX_BG_RGB)
+    assert len(box) == 1
+    _bx, box_y, _bw, box_h, box_op = box[0]
+    assert box_op == "B"  # relleno + trazo
+    triples = _drawn_triples(data)
+    first = [y for _x, y, t in triples if t == b"Archivos: 13"]
+    last = [y for _x, y, t in triples if t.startswith(b"Velocidad media \\(")]
+    assert len(first) == 1 and len(last) == 1
+    _ASC, _DESC = 7.18, 2.07  # ascensor/descensor de Helvetica 10 pt (en pt)
+    top_gap = (box_y + box_h) - (first[0] + _ASC)
+    bottom_gap = (last[0] - _DESC) - box_y
+    assert abs(top_gap - bottom_gap) < 1 * mm  # pre-fix: ~20 pt de diferencia
 
 
 def test_report_pdf_el_mapeo_de_cves_cubre_las_10_categorias():

@@ -8,7 +8,6 @@ from pathlib import Path
 from app.scanner import ScanResult, scan_project
 
 PROJECT_SCOPES: dict[str, list[str]] = {
-    "miniapp": ["."],
     # DVWA master reorganizó la estructura: módulos de vulneraciones clásicas por carpeta.
     # Scope acotado a 12 módulos clásicos (≈127k chars): con el scope completo
     # (vulnerabilities/ + dvwa/includes/ ≈ 430k chars) y también con los 16 módulos
