@@ -80,7 +80,8 @@ export function buildScopeText(
       const { hours, priority } = SEVERITY_PLAN[f.severity]
       blocks.push(
         [
-          `${n}. ${f.title.toUpperCase()} (${vuln.name.toUpperCase()}) — ${SEVERITY_LABEL[f.severity]}`,
+          // QA-iter 6: el CVE de la categoría va en texto plano (sin enlace) en el alcance.
+          `${n}. ${f.title.toUpperCase()} (${vuln.name.toUpperCase()} · ${vuln.cve}) — ${SEVERITY_LABEL[f.severity]}`,
           `Objetivo: eliminar ${f.title} detectado en ${f.file}.`,
           `· Revisar la ocurrencia en ${f.file}:${f.line} y aplicar la solución recomendada.`,
           `· Validar el cambio con una prueba que cubra el caso de ${f.title}.`,

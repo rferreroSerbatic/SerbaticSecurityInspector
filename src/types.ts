@@ -5,6 +5,8 @@ export interface Vuln {
   name: string
   icon: string
   description: string
+  /** CVE representativo de la categoría (QA-iter 6); su ficha: cve.org/CVERecord?id=... */
+  cve: string
 }
 
 export interface Finding {

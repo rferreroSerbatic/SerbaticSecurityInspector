@@ -58,16 +58,23 @@ test('agrupa por vuln en orden A01..A10 y numera globalmente 1..n', () => {
   const text = build()
   // A01 va antes que A03 pese a entrar después en el array.
   const posA01 = text.indexOf(
-    '1. IDOR: PERFIL ACCESIBLE SIN COMPROBAR EL PROPIETARIO (FALLOS DE CONTROL DE ACCESO) — ALTO',
+    '1. IDOR: PERFIL ACCESIBLE SIN COMPROBAR EL PROPIETARIO (FALLOS DE CONTROL DE ACCESO · CVE-2024-38816) — ALTO',
   )
-  const posA03Crit = text.indexOf('2. SQL INJECTION EN GET_ORDERS() (INYECCIÓN) — CRÍTICO')
-  const posA03Med = text.indexOf('3. COMMAND INJECTION EN BUILD_NUMBER (INYECCIÓN) — MEDIO')
+  const posA03Crit = text.indexOf('2. SQL INJECTION EN GET_ORDERS() (INYECCIÓN · CVE-2021-44228) — CRÍTICO')
+  const posA03Med = text.indexOf('3. COMMAND INJECTION EN BUILD_NUMBER (INYECCIÓN · CVE-2021-44228) — MEDIO')
 
   expect(posA01).toBeGreaterThan(-1)
   expect(posA03Crit).toBeGreaterThan(-1)
   expect(posA03Med).toBeGreaterThan(-1)
   expect(posA01).toBeLessThan(posA03Crit)
   expect(posA03Crit).toBeLessThan(posA03Med)
+})
+
+test('cada card incluye el CVE de su categoría en texto plano (sin enlace)', () => {
+  // QA-iter 6: en el alcance basta con informar el CVE en el texto.
+  const text = build()
+  expect(text).toContain('FALLOS DE CONTROL DE ACCESO · CVE-2024-38816')
+  expect(text).toContain('INYECCIÓN · CVE-2021-44228')
 })
 
 test('cada bloque incluye file:line, label de severidad y estimación/prioridad', () => {
@@ -120,7 +127,7 @@ test('un hallazgo con vulnId no conocido en la lista se omite sin romper', () =>
   // Se omite: el documento no menciona ni el hallazgo ni la vuln desconocida.
   const text = buildScopeText([a01High, desconocido], OWASP_VULNS, PROJECT, DATE_ISO)
   expect(
-    text).toContain('1. IDOR: PERFIL ACCESIBLE SIN COMPROBAR EL PROPIETARIO (FALLOS DE CONTROL DE ACCESO) — ALTO')
+    text).toContain('1. IDOR: PERFIL ACCESIBLE SIN COMPROBAR EL PROPIETARIO (FALLOS DE CONTROL DE ACCESO · CVE-2024-38816) — ALTO')
   expect(text).not.toContain('A99')
   expect(text).not.toContain('no catalogada')
 

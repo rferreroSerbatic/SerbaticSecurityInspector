@@ -95,6 +95,19 @@ const renderScreen = (
     />,
   )
 
+test('cada hallazgo muestra el CVE de su categoría con enlace a su ficha', () => {
+  // QA-iter 6: CVE representativo de la categoría, enlazado a cve.org.
+  renderScreen()
+  const link = screen.getByRole('link', { name: 'CVE-2024-38816' })
+  expect(link).toHaveAttribute('href', 'https://www.cve.org/CVERecord?id=CVE-2024-38816')
+  expect(link).toHaveAttribute('target', '_blank')
+  // Otros hallazgos de la misma lista: sus CVEs también son enlaces.
+  expect(screen.getByRole('link', { name: 'CVE-2021-44228' })).toHaveAttribute(
+    'href',
+    'https://www.cve.org/CVERecord?id=CVE-2021-44228',
+  )
+})
+
 test('renderiza las métricas y la barra de severidad con sus segmentos', () => {
   const { container } = renderScreen()
   expect(container.querySelector('[style*="radial-gradient"]')).not.toBeInTheDocument()

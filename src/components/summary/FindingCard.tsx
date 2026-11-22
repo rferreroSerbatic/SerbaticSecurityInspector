@@ -79,6 +79,17 @@ export function FindingCard({
             {expanded ? '▾' : '▸'}
           </span>
         </button>
+        {/* QA-iter 6: CVE representativo de la categoría, enlazado a su ficha.
+            Fuera del <button> (un enlace anidado sería HTML inválido). */}
+        <a
+          href={`https://www.cve.org/CVERecord?id=${vuln.cve}`}
+          target="_blank"
+          rel="noreferrer"
+          title={`Abrir la ficha de ${vuln.cve} en cve.org`}
+          className="shrink-0 font-mono text-[10px] tracking-wide text-ink-faint transition-colors duration-200 hover:text-neon-cyan"
+        >
+          {vuln.cve}
+        </a>
         {demoHref && (
           <a
             href={demoHref}

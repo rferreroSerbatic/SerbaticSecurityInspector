@@ -12,3 +12,11 @@ test('cada vuln tiene name, icon y description no vacíos', () => {
     expect(v.description.trim()).not.toBe('')
   }
 })
+
+test('cada vuln tiene un cve real (formato CVE-AAAA-NNNNN) y todos son únicos', () => {
+  const cves = OWASP_VULNS.map(v => v.cve)
+  for (const cve of cves) {
+    expect(cve).toMatch(/^CVE-\d{4}-\d{4,}$/)
+  }
+  expect(new Set(cves).size).toBe(cves.length)
+})
