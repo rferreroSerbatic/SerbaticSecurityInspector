@@ -186,6 +186,11 @@ export function SourceScreen({
 
         {live ? (
           <>
+            {projects.length === 0 ? (
+              <p className="mt-8 border border-ink-faint bg-panel px-4 py-3 font-mono text-xs leading-relaxed text-ink-dim">
+                SIN PROYECTOS DE EJEMPLO — copia una carpeta de proyecto a samples/ (aparecerá al volver a esta pantalla) o registra uno abajo.
+              </p>
+            ) : (
             <div role="radiogroup" aria-label="Proyectos disponibles" className="mt-8 flex flex-col gap-2">
               {projects.map((p, i) => (
                 <div
@@ -235,6 +240,7 @@ export function SourceScreen({
                 </div>
               ))}
             </div>
+            )}
             {deleteError && (
               <p className="mt-2 font-mono text-xs text-sev-critical">{deleteError}</p>
             )}

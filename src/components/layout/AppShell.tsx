@@ -7,11 +7,14 @@ export function AppShell({
   step,
   onGoSource,
   onGoVulns,
+  mockMode,
   children,
 }: {
   step: Step
   onGoSource: () => void
   onGoVulns: () => void
+  /** QA-iter 9: visible cuando la app cayó a modo mock (backend inalcanzable). */
+  mockMode?: boolean
   children: ReactNode
 }) {
   return (
@@ -25,6 +28,14 @@ export function AppShell({
             'radial-gradient(ellipse at 75% 15%, rgba(255,45,149,0.22), transparent 55%), radial-gradient(ellipse at 15% 85%, rgba(0,229,255,0.18), transparent 55%)',
         }}
       />
+      {mockMode && (
+        <div
+          role="status"
+          className="relative z-10 border-b border-sev-medium/40 bg-sev-medium/10 px-6 py-2 text-center font-mono text-[11px] uppercase tracking-widest text-sev-medium"
+        >
+          MODO DEMO · sin backend — los hallazgos son simulados. Arranca el backend (.\scripts\start-all.ps1) para auditorías reales.
+        </div>
+      )}
       <header className="relative z-10 flex items-center justify-between gap-4 px-6 py-4">
         <span className="flex items-center gap-3">
           <img src={logoUrl} alt="Serbatic" className="h-7" />

@@ -22,7 +22,8 @@ type Detection = 'loading' | 'live' | 'mock'
  * - `service` → comportamiento exacto de Fase 1 (mock por defecto).
  * - `projects` (array) → modo live directo (lo usan los tests E2E).
  * - Sin props (uso real) → autodetección: `GET /api/health` (timeout 1500 ms)
- *   y, si ok, `GET /api/projects` → modo live; cualquier fallo → modo mock.
+ *   y, si ok, `GET /api/projects` → modo live (incluso con lista vacía — QA-iter 9);
+ *   solo backend inalcanzable o respuesta malformada → modo mock (con banner visible).
  *   Mientras no resuelve: «CONECTANDO…».
  */
 export default function App({
@@ -69,8 +70,11 @@ export default function App({
       })
       .then(list => {
         if (disposed) return
-        // M2: 0 proyectos (o JSON no-array) → modo mock, no callejón sin salida live.
-        if (!Array.isArray(list) || list.length === 0) throw new Error('sin proyectos')
+        // QA-iter 9 (antes M2): lista vacía → live con 0 proyectos, NO mock:
+        // desde la QA-iter 7 `samples/` puede estar vacío por diseño y el usuario
+        // registra sus proyectos propios; caer a mock mostraba hallazgos simulados
+        // sin avisar. Solo JSON malformado (no-array) sigue cayendo a mock.
+        if (!Array.isArray(list)) throw new Error('proyectos: no-array')
         setDetectedProjects(list)
         setDetection('live')
       })
@@ -141,7 +145,12 @@ export default function App({
   })()
 
   return (
-    <AppShell step={flow.step} onGoSource={flow.goSource} onGoVulns={flow.goVulns}>
+    <AppShell
+      step={flow.step}
+      onGoSource={flow.goSource}
+      onGoVulns={flow.goVulns}
+      mockMode={autoDetect && detection === 'mock'}
+    >
       {screen}
       {flow.scopeOpen && (
         <ScopeModal

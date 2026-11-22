@@ -252,6 +252,12 @@ test('modo mock: sin el bloque «Auditar un proyecto propio»', () => {
   expect(screen.queryByText(/auditar un proyecto propio/i)).toBeNull()
 })
 
+test('modo live con 0 proyectos: mensaje de estado vacío (QA-iter 9)', () => {
+  liveScreen({ projects: [] })
+  expect(screen.getByText(/SIN PROYECTOS DE EJEMPLO/i)).toBeInTheDocument()
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+})
+
 // --- Task 2 (Fase 2b.1): navegador de carpetas (📂 NAVEGAR) ---
 const TARGET = 'C:/Users/rferrero/Documentos/mi app (copia)'
 

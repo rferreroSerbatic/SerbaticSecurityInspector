@@ -72,15 +72,18 @@ test('autodetección: backend ok → modo live', async () => {
   const { findByText } = render(<App />)
   expect(await findByText(/FUENTE|ANALIZAR/i)).toBeTruthy()
   expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/health')
+  // QA-iter 9: en live no hay banner de modo demo.
+  expect(screen.queryByText(/MODO DEMO/i)).not.toBeInTheDocument()
 })
 
-test('autodetección: backend caído → modo mock', async () => {
+test('autodetección: backend caído → modo mock (con banner visible, QA-iter 9)', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down') }))
   const { findByText } = render(<App />)
   expect(await findByText('ANALIZAR APLICACIÓN')).toBeTruthy()
+  expect(screen.getByText(/MODO DEMO/i)).toBeInTheDocument()
 })
 
-test('autodetección: /api/projects con 0 proyectos → modo mock (M2)', async () => {
+test('autodetección: /api/projects con 0 proyectos → modo live vacía (QA-iter 9; antes M2 caía a mock)', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) =>
     url === '/api/health'
       ? new Response('ok', { status: 200 })
@@ -89,11 +92,12 @@ test('autodetección: /api/projects con 0 proyectos → modo mock (M2)', async (
   const analizar = await screen.findByRole('button', { name: /analizar aplicación/i })
   fireEvent.click(analizar)
 
-  // Modo mock: tab de carpeta local sin proyectos demo (QA-iter 8: retirados),
-  // no la lista live (que quedaría vacía).
-  expect(await screen.findByRole('tab', { name: /carpeta local/i })).toBeTruthy()
-  expect(screen.queryAllByText(/webapp-acme|api-billing|portal-rrhh/)).toHaveLength(0)
-  expect(screen.queryByText(/AUDITAR UN PROYECTO PROPIO/i)).not.toBeInTheDocument()
+  // Backend arriba pero sin proyectos: NO es mock (hallazgos simulados): live con
+  // lista vacía + mensaje de estado vacío + bloque «AUDITAR UN PROYECTO PROPIO».
+  expect(screen.queryByRole('tab', { name: /carpeta local/i })).not.toBeInTheDocument()
+  expect(await screen.findByText(/AUDITAR UN PROYECTO PROPIO/i)).toBeTruthy()
+  expect(await screen.findByText(/SIN PROYECTOS DE EJEMPLO/i)).toBeTruthy()
+  expect(screen.queryByText(/MODO DEMO/i)).not.toBeInTheDocument()
 })
 
 test('loading mientras la detección no resuelve', () => {
