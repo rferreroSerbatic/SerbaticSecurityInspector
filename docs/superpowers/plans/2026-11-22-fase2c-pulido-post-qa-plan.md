@@ -330,7 +330,7 @@ const [deleteError, setDeleteError] = useState<string | null>(null)
 2. Nueva función (junto a `submitGit`):
 
 ```tsx
-const deleteProject = async (p: ProjectInfo, index: number) => {
+const deleteProject = async (p: ProjectInfo, _index: number) => {
   const detail =
     p.kind === 'git'
       ? 'Se borrará su clon del workspace. El repositorio original no se toca.'
@@ -341,7 +341,10 @@ const deleteProject = async (p: ProjectInfo, index: number) => {
   try {
     const res = await fetch(`/api/projects/${p.id}`, { method: 'DELETE' })
     if (res.status === 200) {
-      if (selected === index) setSelected(null)
+      // Selección SIEMPRE limpia tras borrar (ruling T2 fix round 1): si se borra
+      // una fila ANTERIOR a la seleccionada, el índice queda obsoleto → TypeError
+      // en handleContinue o auditoría del proyecto equivocado.
+      setSelected(null)
       await onRefresh?.()
     } else if (res.status === 404) {
       setDeleteError('El proyecto ya no existe')
