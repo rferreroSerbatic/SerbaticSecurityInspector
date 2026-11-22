@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
+from app.agents.guides import find_file_content, one_guide
+from app.agents.profile import Profile
 from app.config import load_settings
 from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git, remove_git, scan_workspace
 from app.llm import LLMClient
@@ -41,6 +43,27 @@ def build_llm() -> LLMClient:
     """Construye el cliente LLM desde la configuración (los tests lo monkeypatchean)."""
     s = load_settings()
     return LLMClient(base_url=s.llm_base_url, api_key=s.llm_api_key, model=s.llm_model)
+
+
+def _profile_from_dict(data) -> Profile | None:
+    """Reconstruye el Profile del dict que manda el front (shape de to_dict del
+    evento profile:done); None si no es dict, si le falta alguna clave (dict parcial
+    de cliente antiguo: el prompt de guía funciona sin perfil) o si falla."""
+    if not isinstance(data, dict):
+        return None
+    if not {"name", "language", "frameworks", "entry_points", "description", "notes"}.issubset(data):
+        return None
+    try:
+        return Profile(
+            name=str(data.get("name", "")),
+            language=str(data.get("language", "")),
+            frameworks=list(data.get("frameworks") or []),
+            entry_points=list(data.get("entry_points") or []),
+            description=str(data.get("description", "")),
+            notes=str(data.get("notes", "")),
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 class AnalyzeBody(BaseModel):
@@ -227,6 +250,35 @@ async def run_events(run_id: str):
             run.subscribers.remove(q)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+class GuideBody(BaseModel):
+    projectId: str
+    finding: dict
+    profile: dict | None = None
+
+
+@app.post("/api/guides")
+async def generate_guide(body: GuideBody):
+    """Guía de explotación bajo demanda de UN hallazgo (Fase 2d.1): 1 llamada LLM."""
+    settings = load_settings()
+    got = await asyncio.to_thread(
+        lambda: local_analyze(body.projectId)
+        or git_analyze(body.projectId)
+        or get_project(settings.samples_dir, body.projectId))
+    if got is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    project, scan = got
+    llm = build_llm()
+    try:
+        guide = await one_guide(llm, body.finding,
+                                find_file_content(scan, body.finding),
+                                _profile_from_dict(body.profile), project.name)
+    finally:
+        await llm.close()
+    if guide is None:
+        raise HTTPException(status_code=502, detail="No se pudo generar la guía")
+    return {"guide": guide}
 
 
 class ScopePdfBody(BaseModel):
