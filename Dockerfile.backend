@@ -7,6 +7,9 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY samples ./samples
+# pdf_report.py busca el logo en <raíz del repo>/assets (relativo al código:
+# /srv/app/pdf_report.py -> parents[2] = /), por eso va en /assets.
+COPY assets /assets
 ENV SAMPLES_DIR=/srv/samples
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
