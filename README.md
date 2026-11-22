@@ -84,6 +84,24 @@ cd backend
 npm run dev        # http://localhost:5173 (proxy /api → :8000)
 ```
 
+## Docker (entrega, 1 comando)
+
+Sin instalar nada local (no hace falta Node ni Python):
+
+```powershell
+# 1. La key del LLM (lo único obligatorio; URL/modelo tienen default):
+#    archivo .env en la raíz del repo, o variable de entorno:  LLM_API_KEY=...
+
+# 2. Construye y arranca backend + front
+docker compose up --build
+```
+
+→ http://localhost:5173 (UI; nginx proxyea `/api/` al backend, con SSE en streaming). API directa (opcional): http://localhost:8000.
+
+- `Dockerfile`: front (build de Vite → nginx). `Dockerfile.backend`: FastAPI/uvicorn :8000 con `samples/`.
+- `./workspace` va montado como volumen: los clones git (workspace/repos/) sobreviven a reinicios del contenedor.
+- Imagen manual, si se prefiere: `docker build -f Dockerfile.backend -t serbatic-backend .` y `docker build -t serbatic-front .`.
+
 ## Proyectos de ejemplo (`samples/`)
 
 Cada **carpeta** copiada en `samples/` se convierte automáticamente en un

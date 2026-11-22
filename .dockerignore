@@ -1,0 +1,11 @@
+.git
+.superpowers
+.tmp
+workspace
+node_modules
+dist
+backend/.venv
+backend/.env
+*.local
+.DS_Store
+npm-debug.log*

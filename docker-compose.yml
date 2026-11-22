@@ -1,0 +1,30 @@
+# Serbatic Security Inspector — entrega.
+#
+#   docker compose up --build   →   http://localhost:5173
+#
+# Solo se necesita la key del LLM: ponla en un .env de la raíz del repo
+# (o exportada en el entorno) como  LLM_API_KEY=...
+# LLM_BASE_URL / LLM_MODEL / LLM_CONCURRENCY son opcionales (tienen default).
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_CONCURRENCY: ${LLM_CONCURRENCY:-3}
+    volumes:
+      # Clones git (workspace/repos/) persistentes en el host.
+      - ./workspace:/workspace
+    ports:
+      - "8000:8000"
+  front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
