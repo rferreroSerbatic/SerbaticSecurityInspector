@@ -79,9 +79,41 @@ test('autodetección: backend ok → modo live', async () => {
 test('autodetección: backend caído → modo mock (con banner visible, QA-iter 9)', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down') }))
   const { findByText } = render(<App />)
-  expect(await findByText('ANALIZAR APLICACIÓN')).toBeTruthy()
+  // QA-iter 11: la detección reintentas 4 veces (~2,3 s) antes de caer a mock.
+  expect(await findByText('ANALIZAR APLICACIÓN', undefined, { timeout: 8000 })).toBeTruthy()
   expect(screen.getByText(/MODO DEMO/i)).toBeInTheDocument()
-})
+}, 15000)
+
+test('autodetección: backend arrancando (fallo, fallo, ok) → live sin pasar por mock (QA-iter 11)', async () => {
+  let healthCalls = 0
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url === '/api/health') {
+      healthCalls++
+      if (healthCalls < 3) throw new Error('uvicorn aún arrancando')
+      return new Response('ok', { status: 200 })
+    }
+    return new Response(JSON.stringify([{ id: 'a', name: 'a', path: '/x', files: 1, lines: 1 }]), { status: 200 })
+  }))
+  const { findByText } = render(<App />)
+  expect(await findByText('ANALIZAR APLICACIÓN', undefined, { timeout: 8000 })).toBeTruthy()
+  expect(healthCalls).toBeGreaterThanOrEqual(3)
+  expect(screen.queryByText(/MODO DEMO/i)).not.toBeInTheDocument()
+}, 15000)
+
+test('banner MODO DEMO: REINTENTAR vuelve a detectar (el backend subió después) (QA-iter 11)', async () => {
+  let up = false
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (!up) throw new Error('down')
+    if (url === '/api/health') return new Response('ok', { status: 200 })
+    return new Response(JSON.stringify([{ id: 'a', name: 'a', path: '/x', files: 1, lines: 1 }]), { status: 200 })
+  }))
+  render(<App />)
+  expect(await screen.findByText(/MODO DEMO/i, undefined, { timeout: 8000 })).toBeInTheDocument()
+  up = true
+  fireEvent.click(screen.getByRole('button', { name: /reintentar/i }))
+  expect(await screen.findByText('ANALIZAR APLICACIÓN', undefined, { timeout: 8000 })).toBeTruthy()
+  expect(screen.queryByText(/MODO DEMO/i)).not.toBeInTheDocument()
+}, 20000)
 
 test('autodetección: /api/projects con 0 proyectos → modo live vacía (QA-iter 9; antes M2 caía a mock)', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) =>

@@ -14,6 +14,13 @@ import { ScopeModal } from './components/scope/ScopeModal'
 /** Estado de la autodetección del backend (solo sin props). */
 type Detection = 'loading' | 'live' | 'mock'
 
+// QA-iter 11: el backend (uvicorn) tarda unos segundos en arrancar tras
+// start-all.ps1; con UN solo intento la app a veces caía a modo mock «a ciegas»
+// y el usuario veía el menú de mock hasta hacer F5. Reintentos + REINTENTAR
+// en el banner lo resuelven.
+const DETECT_ATTEMPTS = 4
+const DETECT_RETRY_MS = 750
+
 /**
  * Cableado completo del flujo de auditoría: useAnalysis es la única fuente de
  * estado y AppShell(step) rodea cada pantalla según flow.step.
@@ -60,32 +67,48 @@ export default function App({
   }, [fetchProjects])
 
   // Autodetección al montar (solo sin props): health → proyectos, o mock.
+  const [detectTick, setDetectTick] = useState(0)
+  const retryDetection = useCallback(() => {
+    setDetection('loading')
+    setDetectTick(t => t + 1)
+  }, [])
+
   useEffect(() => {
     if (!autoDetect) return
     let disposed = false
-    fetch('/api/health', { signal: AbortSignal.timeout(1500) })
-      .then(res => {
-        if (!res.ok) throw new Error(`health: ${res.status}`)
-        return fetchProjects()
-      })
-      .then(list => {
-        if (disposed) return
-        // QA-iter 9 (antes M2): lista vacía → live con 0 proyectos, NO mock:
-        // desde la QA-iter 7 `samples/` puede estar vacío por diseño y el usuario
-        // registra sus proyectos propios; caer a mock mostraba hallazgos simulados
-        // sin avisar. Solo JSON malformado (no-array) sigue cayendo a mock.
-        if (!Array.isArray(list)) throw new Error('proyectos: no-array')
-        setDetectedProjects(list)
-        setDetection('live')
-      })
-      .catch(() => {
-        if (disposed) return
-        setDetection('mock')
-      })
+    const attempt = (n: number) => {
+      fetch('/api/health', { signal: AbortSignal.timeout(1500) })
+        .then(res => {
+          if (!res.ok) throw new Error(`health: ${res.status}`)
+          return fetchProjects()
+        })
+        .then(list => {
+          if (disposed) return
+          // QA-iter 9 (antes M2): lista vacía → live con 0 proyectos, NO mock:
+          // desde la QA-iter 7 `samples/` puede estar vacío por diseño y el usuario
+          // registra sus proyectos propios; caer a mock mostraba hallazgos simulados
+          // sin avisar. Solo JSON malformado (no-array) sigue cayendo a mock.
+          if (!Array.isArray(list)) throw new Error('proyectos: no-array')
+          setDetectedProjects(list)
+          setDetection('live')
+        })
+        .catch(() => {
+          if (disposed) return
+          // QA-iter 11: el backend puede estar arrancando → reintento antes de mock.
+          if (n < DETECT_ATTEMPTS) {
+            window.setTimeout(() => {
+              if (!disposed) attempt(n + 1)
+            }, DETECT_RETRY_MS)
+          } else {
+            setDetection('mock')
+          }
+        })
+    }
+    attempt(1)
     return () => {
       disposed = true
     }
-  }, [autoDetect, fetchProjects])
+  }, [autoDetect, fetchProjects, detectTick])
 
   // Una instancia del servicio live por fase live (directa o detectada).
   const liveService = useMemo(
@@ -150,6 +173,7 @@ export default function App({
       onGoSource={flow.goSource}
       onGoVulns={flow.goVulns}
       mockMode={autoDetect && detection === 'mock'}
+      onRetryDetection={autoDetect ? retryDetection : undefined}
     >
       {screen}
       {flow.scopeOpen && (

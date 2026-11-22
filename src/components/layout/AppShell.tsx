@@ -8,6 +8,7 @@ export function AppShell({
   onGoSource,
   onGoVulns,
   mockMode,
+  onRetryDetection,
   children,
 }: {
   step: Step
@@ -15,6 +16,8 @@ export function AppShell({
   onGoVulns: () => void
   /** QA-iter 9: visible cuando la app cayó a modo mock (backend inalcanzable). */
   mockMode?: boolean
+  /** QA-iter 11: botón «reintentar» del banner (re-lanza la autodetección). */
+  onRetryDetection?: () => void
   children: ReactNode
 }) {
   return (
@@ -31,9 +34,24 @@ export function AppShell({
       {mockMode && (
         <div
           role="status"
-          className="relative z-10 border-b border-sev-medium/40 bg-sev-medium/10 px-6 py-2 text-center font-mono text-[11px] uppercase tracking-widest text-sev-medium"
+          className="relative z-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b border-sev-medium/40 bg-sev-medium/10 px-6 py-2 text-center font-mono text-[11px] uppercase tracking-widest text-sev-medium"
         >
-          MODO DEMO · sin backend — los hallazgos son simulados. Arranca el backend (.\scripts\start-all.ps1) para auditorías reales.
+          <span>
+            MODO DEMO · sin backend — los hallazgos son simulados. Arranca el backend
+            (.\scripts\start-all.ps1)
+            {onRetryDetection && (
+              <>
+                {', '}
+                <button
+                  type="button"
+                  onClick={onRetryDetection}
+                  className="font-bold underline decoration-sev-medium/50 underline-offset-2 transition-colors hover:text-ink"
+                >
+                  reintentar
+                </button>
+              </>
+            )}
+          </span>
         </div>
       )}
       <header className="relative z-10 flex items-center justify-between gap-4 px-6 py-4">
