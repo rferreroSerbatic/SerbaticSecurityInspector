@@ -343,3 +343,99 @@ test('modo live: 400 de registro al usar carpeta del navegador → error inline 
   expect(screen.getByText('Ruta no válida: debe existir, ser una carpeta y no estar dentro de samples/')).toBeInTheDocument()
   expect(screen.getByLabelText('Ruta local del proyecto')).toHaveValue(TARGET)
 })
+
+// --- Task 1 (Fase 2c): eliminar proyectos en modo live ---
+const LIVE_DELETABLE: ProjectInfo[] = [
+  { id: 'miniapp', name: 'miniapp', path: 'C:/samples/miniapp', files: 12, lines: 340 },
+  { id: 'local-1', name: 'mi app', path: 'C:/proyectos/mi app', files: 30, lines: 800, kind: 'local' },
+  { id: 'git-1', name: 'dvwa', path: 'C:/workspace/repos/github.com-x-y-a1b2c3', files: 40, lines: 900, kind: 'git' },
+]
+
+test('eliminar: botón solo en filas LOCAL/GIT (no en sample)', () => {
+  liveScreen({ projects: LIVE_DELETABLE })
+  expect(screen.getByRole('button', { name: 'Eliminar mi app' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Eliminar dvwa' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /eliminar miniapp/i })).not.toBeInTheDocument()
+})
+
+test('eliminar: confirm → DELETE /api/projects/<id> + onRefresh', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  const fetchMockFn = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, kind: 'local' }) })
+  globalThis.fetch = fetchMockFn as unknown as typeof fetch
+  const onRefresh = vi.fn().mockResolvedValue(undefined)
+  liveScreen({ projects: LIVE_DELETABLE, onRefresh })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar mi app' }))
+  })
+  expect(confirmSpy).toHaveBeenCalledWith(
+    '¿Eliminar "mi app" de la lista? La carpeta original y sus archivos no se tocan.',
+  )
+  expect(fetchMockFn).toHaveBeenCalledTimes(1)
+  expect(String(fetchMockFn.mock.calls[0][0])).toBe('/api/projects/local-1')
+  expect(fetchMockFn.mock.calls[0][1]?.method).toBe('DELETE')
+  expect(onRefresh).toHaveBeenCalledTimes(1)
+  confirmSpy.mockRestore()
+})
+
+test('eliminar: confirm cancelado → no hay DELETE', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  const fetchMockFn = vi.fn()
+  globalThis.fetch = fetchMockFn as unknown as typeof fetch
+  liveScreen({ projects: LIVE_DELETABLE })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar dvwa' }))
+  })
+  expect(fetchMockFn).not.toHaveBeenCalled()
+  confirmSpy.mockRestore()
+})
+
+test('eliminar la fila seleccionada limpia la selección (CONTINUAR deshabilitado)', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, kind: 'local' }) }) as unknown as typeof fetch
+  liveScreen({ projects: LIVE_DELETABLE })
+  fireEvent.click(screen.getByRole('radio', { name: /mi app/ }))
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeEnabled()
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar mi app' }))
+  })
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeDisabled()
+  confirmSpy.mockRestore()
+})
+
+test('eliminar una fila ANTERIOR a la seleccionada limpia también la selección (CONTINUAR deshabilitado)', async () => {
+  // La fila 0 debe ser borrable (local/git): en LIVE_DELETABLE la fila 0 es sample
+  // y no tiene botón de eliminar por diseño.
+  const projects: ProjectInfo[] = [
+    { id: 'local-0', name: 'proyecto uno', path: 'C:/proyectos/proyecto uno', files: 10, lines: 200, kind: 'local' },
+    { id: 'git-1', name: 'proyecto dos', path: 'C:/workspace/repos/github.com-x-y-d4e5f6', files: 20, lines: 400, kind: 'git' },
+    { id: 'local-2', name: 'proyecto tres', path: 'C:/proyectos/proyecto tres', files: 30, lines: 600, kind: 'local' },
+  ]
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, kind: 'local' }) }) as unknown as typeof fetch
+  liveScreen({ projects })
+  // Selección en índice 1; se borra la fila índice 0: con la limpieza condicional,
+  // `selected` (=1) queda obsoleto tras el borrado y CONTINUAR seguiría habilitado.
+  fireEvent.click(screen.getByRole('radio', { name: /proyecto dos/ }))
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeEnabled()
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar proyecto uno' }))
+  })
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeDisabled()
+  confirmSpy.mockRestore()
+})
+
+test('eliminar: 409 del backend → mensaje inline con el detail', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: false, status: 409,
+    json: async () => ({ detail: 'Hay un análisis en curso para este proyecto; cancela antes de eliminarlo' }),
+  }) as unknown as typeof fetch
+  liveScreen({ projects: LIVE_DELETABLE })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar mi app' }))
+  })
+  expect(
+    screen.getByText('Hay un análisis en curso para este proyecto; cancela antes de eliminarlo'),
+  ).toBeInTheDocument()
+  vi.restoreAllMocks()
+})

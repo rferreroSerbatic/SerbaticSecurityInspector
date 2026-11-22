@@ -51,6 +51,8 @@ export function SourceScreen({
   const [gitError, setGitError] = useState<string | null>(null)
   // Navegador de carpetas (G2 Fase 2b.1): modal live para elegir la carpeta por clics.
   const [browseOpen, setBrowseOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const canContinue = live
@@ -140,6 +142,38 @@ export function SourceScreen({
     }
   }
 
+  const deleteProject = async (p: ProjectInfo, _index: number) => {
+    const detail =
+      p.kind === 'git'
+        ? 'Se borrará su clon del workspace. El repositorio original no se toca.'
+        : 'La carpeta original y sus archivos no se tocan.'
+    if (!window.confirm(`¿Eliminar "${p.name}" de la lista? ${detail}`)) return
+    setDeletingId(p.id)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`/api/projects/${p.id}`, { method: 'DELETE' })
+      if (res.status === 200) {
+        // Selección SIEMPRE limpia tras borrar (ruling T2 fix round 1): si se borra
+        // una fila ANTERIOR a la seleccionada, el índice queda obsoleto → TypeError
+        // en handleContinue o auditoría del proyecto equivocado.
+        setSelected(null)
+        await onRefresh?.()
+      } else if (res.status === 404) {
+        setDeleteError('El proyecto ya no existe')
+        await onRefresh?.()
+      } else if (res.status === 409) {
+        const body = (await res.json().catch(() => null)) as { detail?: unknown } | null
+        setDeleteError(typeof body?.detail === 'string' ? body.detail : 'Este proyecto no se puede eliminar')
+      } else {
+        setDeleteError('Error de conexión con el backend')
+      }
+    } catch {
+      setDeleteError('Error de conexión con el backend')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const tabClasses = (active: boolean) =>
     `border px-4 py-2 font-mono text-xs font-semibold uppercase tracking-widest transition-all duration-200 ${
       active
@@ -161,13 +195,19 @@ export function SourceScreen({
           <>
             <div role="radiogroup" aria-label="Proyectos disponibles" className="mt-8 flex flex-col gap-2">
               {projects.map((p, i) => (
-                <button
+                <div
                   key={p.id}
-                  type="button"
                   role="radio"
                   aria-checked={selected === i}
+                  tabIndex={0}
                   onClick={() => setSelected(i)}
-                  className={`flex items-center justify-between gap-4 border px-4 py-3 text-left transition-all duration-200 ${
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelected(i)
+                    }
+                  }}
+                  className={`flex cursor-pointer items-center justify-between gap-4 border px-4 py-3 text-left transition-all duration-200 ${
                     selected === i
                       ? 'border-neon-magenta bg-neon-magenta/5 shadow-[0_0_12px_rgba(255,45,149,0.2)]'
                       : 'border-ink-faint opacity-60 hover:opacity-100'
@@ -184,10 +224,27 @@ export function SourceScreen({
                   <span className="flex items-center gap-3">
                     <span className="font-mono text-xs text-ink-dim">{p.path}</span>
                     <span className="font-mono text-xs text-ink-faint">{p.files} archivos</span>
+                    {(p.kind === 'local' || p.kind === 'git') && (
+                      <button
+                        type="button"
+                        aria-label={`Eliminar ${p.name}`}
+                        disabled={deletingId !== null}
+                        onClick={e => {
+                          e.stopPropagation()
+                          void deleteProject(p, i)
+                        }}
+                        className="rounded border border-ink-faint px-1.5 py-0.5 font-mono text-[10px] text-ink-faint transition-colors duration-200 hover:border-sev-critical hover:text-sev-critical disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {deletingId === p.id ? '…' : '🗑 ELIMINAR'}
+                      </button>
+                    )}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
+            {deleteError && (
+              <p className="mt-2 font-mono text-xs text-sev-critical">{deleteError}</p>
+            )}
             <div className="mt-8">
               <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-ink-dim">
                 AUDITAR UN PROYECTO PROPIO
