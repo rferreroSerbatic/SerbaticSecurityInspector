@@ -2,7 +2,7 @@
 
 Herramienta web de auditoría de seguridad de código. **La propia aplicación ejecuta el análisis**: un motor de 11 agentes LLM (1 perfilador + 10 especialistas, uno por categoría OWASP Top 10) audita el proyecto contra tu endpoint LLM OpenAI-compatible y emite el progreso en vivo a una UI React de estética cyberpunk.
 
-**Estado: Fase 2b completa (tag `v0.3.0`)** — motor de análisis real + modo live en el front + proyecto de ejemplo ejecutable (`miniapp`) + ground truth 10/10 + proyectos propios (carpeta local y repo git) + streaming LLM + informe PDF completo.
+**Estado: Fase 2c completa (tag `v0.3.2`)** — motor de análisis real + modo live en el front + proyectos propios (carpeta local y repo git) + streaming LLM + informe PDF completo + PDF claro para cliente.
 
 ## Cómo funciona
 
@@ -17,7 +17,7 @@ Herramienta web de auditoría de seguridad de código. **La propia aplicación e
 - **Backend (FastAPI, Python)**: escanea el proyecto (archivos de código + manifiestos), ejecuta un pipeline de 2 oleadas — **perfilador** (lenguaje, frameworks, entry points) → **10 agentes de vulnerabilidad en paralelo** — y emite por SSE: arranque, perfil, agentes, log de hallazgos `[SEVERIDAD] archivo:linea — título` y resultado final.
 - **Agentes (11)**: 1 perfilador + 1 especialista por categoría **OWASP Top 10** — A01 control de acceso, A02 criptografía, A03 inyección, A04 diseño inseguro, A05 configuración, A06 componentes vulnerables, A07 identificación/autenticación, A08 ejecución de código no verificado, A09 registro/monitoreo, A10 integraciones de terceros (SSRF). Cada agente tiene su prompt propio; los hallazgos se **validan contra el escaneo real** (el archivo debe existir y la línea estar en rango): lo que no se ancla al código se descarta.
 - **Frontend (React + Vite + TypeScript + Tailwind)**: autodetecta el backend (`GET /api/health`, timeout 1500 ms). Si hay → **modo live** (proyectos reales, análisis real con modelo y velocidad en pantalla `⚡ modelo · N tk/s`, resumen con snippet/exploit/solución, alcance técnico exportable a PDF). Si no → **modo mock** (demo sin backend, con los proyectos demo).
-- **E2E verificado con LLM real**: `miniapp` → 10/10 vulnerabilidades detectadas (ground truth); DVWA → 126 hallazgos en ~2 min (evidencia en el plan de Fase 2a).
+- **E2E verificado con LLM real**: DVWA → 126 hallazgos en ~2 min (Fase 2a) y 51 en ~190 s con streaming (Fase 2b); `mi app (e2e)` → 2 hallazgos en ~10 s (evidencia en `PROGRESS.md`).
 
 ## Requisitos
 
@@ -49,25 +49,22 @@ LLM_MODEL=nombre-del-modelo
 LLM_CONCURRENCY=3
 ```
 
-Dependencias de los frontends (raíz y web de ejemplo):
+Dependencias del front:
 
 ```bash
 npm install
-cd samples/miniapp
-npm install
-cd ..
 ```
 
 **Arranque y parada**
 
 ```bash
-.\scripts\start-all.ps1     # arranca backend :8000 + front :5173 + miniapp :3000 (los que no estén)
-.\scripts\stop-all.ps1      # para las 3 (mata por puerto)
+.\scripts\start-all.ps1     # arranca backend :8000 + front :5173 (los que no estén)
+.\scripts\stop-all.ps1      # para las 2 (mata por puerto)
 ```
 
-Abre http://localhost:5173: la app detecta el backend y te deja elegir **miniapp** (el proyecto de ejemplo) para auditoriarlo de verdad. Al terminar, cada hallazgo del resumen lleva un enlace **«🔎 ver en la demo»** que abre la sección de esa vulnerabilidad en http://localhost:3000.
+Abre http://localhost:5173: la app detecta el backend y te deja elegir entre los **proyectos de ejemplo** (las carpetas de `samples/`) y los **proyectos propios** (carpeta local o repo git) para auditoriarlos de verdad.
 
-### Opción avanzada: 3 terminales
+### Opción avanzada: 2 terminales
 
 Si prefieres lanzar cada app a mano:
 
@@ -86,28 +83,18 @@ cd backend
 npm run dev        # http://localhost:5173 (proxy /api → :8000)
 ```
 
-**3. Opcional — web de ejemplo ejecutable (puerto 3000)**
+## Proyectos de ejemplo (`samples/`)
 
-```bash
-npm --prefix samples/miniapp start   # http://localhost:3000
-```
-
-## Proyecto de ejemplo: `samples/miniapp`
-
-API Express **intencionalmente vulnerable** (solo para auditoría local; no la expongas a redes reales): 10 vulnerabilidades sembradas, una por categoría OWASP, en 8 archivos reales. Es ejecutable (`npm start`) y su página raíz documenta cada una con el endpoint y cómo explotarla.
-
-**Ground truth** (regresión del motor con LLM real):
-
-```bash
-cd backend
-.venv\Scripts\python.exe -m pytest -m llm -v     # gate ≥ 8/10 contra expected-findings.json (actual: 10/10)
-```
+Cada **carpeta** copiada en `samples/` se convierte automáticamente en un
+proyecto de ejemplo en la app (aparece en la lista de proyectos al arrancar el
+backend, auditable de verdad). No hay que registrar nada. Ver
+`samples/README.md`.
 
 ## Tests
 
 ```bash
 cd backend && .venv\Scripts\python.exe -m pytest -q   # motor (sin LLM) + API + SSE + pipeline
-npx vitest run                                        # frontend (89+ tests)
+npx vitest run                                        # frontend (130+ tests)
 npm run build                                         # tsc --noEmit + vite build
 ```
 
@@ -123,14 +110,15 @@ npm run build                                         # tsc --noEmit + vite buil
 | `backend/app/main.py` | API: `health`, `projects`, `analyze`, `runs/{id}/events` (SSE con replay), `cancel`, `reports/scope-pdf` |
 | `src/services/liveAnalysisService.ts` | Servicio live (SSE) tras la interfaz `AnalysisService` |
 | `src/services/mockAnalysisService.ts` | Servicio mock (Fase 1, intacto como fallback) |
-| `samples/miniapp/` | Demo ejecutable + `expected-findings.json` (ground truth) |
+| `samples/` | Proyectos de ejemplo: cada subcarpeta = 1 proyecto (auto-detectado) |
 
 ## Fases
 
 - **Fase 1 / 1.1** (completa, `v0.1.0`): UI completa + mock + navegación + fondo ambiental.
 - **Fase 2a** (completa, `v0.2.0`): motor de análisis real (FastAPI + 11 agentes LLM + SSE), modo live en el front, miniapp + ground truth, PDF del alcance, modelo/tk/s en pantalla.
 - **Fase 2b** (completa, `v0.3.0`): auditar **cualquier carpeta local** y repos git, streaming del cliente LLM (scopes mayores), PDF del informe completo, cancel robusto, desduplicación de hallazgos y minors de la 2a.
-- **Fase 2c** (próxima): híbrido reglas (semgrep) + LLM, relocalización exacta de línea.
+- **Fase 2b.1** (completa, `v0.3.1`): pulido y marca — logo + título, navegador de carpetas en modo live, PDF claro para cliente con código coloreado, arranque/parada 1-comando.
+- **Fase 2c** (completa, `v0.3.2`): híbrido reglas (semgrep) + LLM, relocalización exacta de línea.
 - **Fase 3**: imagen Docker «descargable».
 
 ## Notas de operación

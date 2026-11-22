@@ -1,5 +1,5 @@
-﻿# Arranca las 3 apps de Serbatic Security Inspector:
-#   backend :8000 · front :5173 · miniapp demo :3000
+﻿# Arranca las 2 apps de Serbatic Security Inspector:
+#   backend :8000 · front :5173
 # Uso: .\scripts\start-all.ps1   (parar con .\scripts\stop-all.ps1)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -22,7 +22,6 @@ function Start-App([string]$Name, [int]$Port, [string]$File, [string[]]$ArgList,
 
 Start-App 'backend' 8000 "$root\backend\.venv\Scripts\python.exe" @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8000') "$root\backend"
 Start-App 'front'   5173 'npm.cmd' @('run','dev') $root
-Start-App 'miniapp' 3000 'npm.cmd' @('start') "$root\samples\miniapp"
 
-Write-Host 'Listo: backend :8000 · front http://localhost:5173 · demo http://localhost:3000'
-Write-Host 'Para las 3 apps: .\scripts\stop-all.ps1'
+Write-Host 'Listo: backend :8000 · front http://localhost:5173'
+Write-Host 'Para las 2 apps: .\scripts\stop-all.ps1'
