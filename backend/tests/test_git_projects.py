@@ -143,6 +143,40 @@ def test_register_git_timeout_partial_dir_retry_reclones(seed_repo, monkeypatch)
         assert r2.json()["project"]["files"] == 2  # archivos del seed, no el partial.js
 
 
+def test_register_git_timeout_partial_dir_readonly_packs_retry_reclones(seed_repo, monkeypatch):
+    """Variante del reintento: el clonado parcial deja packs read-only (git-for-windows,
+    E2E 2c). La limpieza debe quitarlos; si no, el reintento reutiliza el remanente."""
+    import os
+    import stat
+    from app.git_projects import GitCloneError
+
+    calls = {"n": 0}
+
+    def flaky_clone(url, dest):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # clonado matado a mitad (timeout): directorio a medias con packs read-only
+            dest.mkdir(parents=True, exist_ok=True)
+            (dest / "partial.js").write_text("incompleto\n", encoding="utf-8")
+            packdir = dest / ".git" / "objects" / "pack"
+            packdir.mkdir(parents=True)
+            for name in ("pack-deadbeef.pack", "pack-deadbeef.idx"):
+                f = packdir / name
+                f.write_bytes(b"\x00" * 8)
+                os.chmod(f, stat.S_IREAD)  # atributo read-only real en NTFS
+            raise GitCloneError("timeout")
+        shutil.copytree(seed_repo, dest)
+
+    monkeypatch.setattr("app.git_projects._git_clone", flaky_clone)
+    with TestClient(app) as c:
+        r1 = c.post("/api/projects/git", json={"url": "https://test.local/org/repo"})
+        assert r1.status_code == 502
+        r2 = c.post("/api/projects/git", json={"url": "https://test.local/org/repo"})
+        assert r2.status_code == 201
+        assert calls["n"] == 2  # el reintento reclonó (no reutilizó el remanente)
+        assert r2.json()["project"]["files"] == 2  # archivos del seed, no el partial.js
+
+
 def test_slug_collision_produces_distinct_clones(seed_repo, monkeypatch):
     def clone(url, dest):
         shutil.copytree(seed_repo, dest)

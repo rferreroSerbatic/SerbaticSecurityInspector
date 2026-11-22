@@ -159,7 +159,10 @@ export function SourceScreen({
         setSelected(null)
         await onRefresh?.()
       } else if (res.status === 404) {
+        // Misma limpieza que la rama 200 (ruling R-T2): la fila 404 podía estar
+        // antes de la seleccionada → índice obsoleto.
         setDeleteError('El proyecto ya no existe')
+        setSelected(null)
         await onRefresh?.()
       } else if (res.status === 409) {
         const body = (await res.json().catch(() => null)) as { detail?: unknown } | null

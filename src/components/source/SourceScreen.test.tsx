@@ -424,6 +424,29 @@ test('eliminar una fila ANTERIOR a la seleccionada limpia también la selección
   confirmSpy.mockRestore()
 })
 
+test('eliminar: 404 del backend limpia la selección (CONTINUAR deshabilitado)', async () => {
+  // Misma clase de bug que la ruling R-T2 en la rama 200: si la fila 404 estaba
+  // ANTES de la seleccionada, el índice queda obsoleto → auditoría equivocada.
+  const projects: ProjectInfo[] = [
+    { id: 'local-0', name: 'proyecto uno', path: 'C:/proyectos/proyecto uno', files: 10, lines: 200, kind: 'local' },
+    { id: 'git-1', name: 'proyecto dos', path: 'C:/workspace/repos/github.com-x-y-d4e5f6', files: 20, lines: 400, kind: 'git' },
+  ]
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch
+  const onRefresh = vi.fn().mockResolvedValue(undefined)
+  liveScreen({ projects, onRefresh })
+  // Selección en índice 1; se borra la fila índice 0 y el backend responde 404.
+  fireEvent.click(screen.getByRole('radio', { name: /proyecto dos/ }))
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeEnabled()
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar proyecto uno' }))
+  })
+  expect(screen.getByText('El proyecto ya no existe')).toBeInTheDocument()
+  expect(onRefresh).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: /continuar/i })).toBeDisabled()
+  confirmSpy.mockRestore()
+})
+
 test('eliminar: 409 del backend → mensaje inline con el detail', async () => {
   vi.spyOn(window, 'confirm').mockReturnValue(true)
   globalThis.fetch = vi.fn().mockResolvedValue({

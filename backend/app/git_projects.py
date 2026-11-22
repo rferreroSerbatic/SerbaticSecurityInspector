@@ -67,6 +67,14 @@ def _slug_of(dest: Path) -> str:
     return dest.name.rsplit("-", 1)[0]
 
 
+def _force_rmtree(path: Path) -> None:
+    """rmtree que limpia el bit read-only: git-for-windows deja los packs read-only."""
+    def _onexc(func, p, exc):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    shutil.rmtree(path, onexc=_onexc)
+
+
 def register_git(url: str) -> ProjectInfo:
     normalized = normalize_git_url(url)
     if normalized is None:
@@ -83,7 +91,12 @@ def register_git(url: str) -> ProjectInfo:
             _git_clone(normalized, dest)
         except GitCloneError:
             # Clonado parcial (p. ej. timeout): lo borra para que el reintento reclone.
-            shutil.rmtree(dest, ignore_errors=True)
+            # Un fallo de limpieza (fichero de verdad bloqueado) no enmascara el
+            # error original: el 502 sigue siendo el del clonado.
+            try:
+                _force_rmtree(dest)
+            except OSError:
+                pass
             raise
     scan = scan_project(dest, ["."])
     if not scan.files:
@@ -122,11 +135,6 @@ def remove_git(project_id: str) -> bool:
     dest = GIT.pop(project_id, None)
     if dest is None:
         return False
-
-    def _onexc(func, p, exc):
-        # git-for-windows deja los packs read-only; rmtree no limpia el bit en Windows.
-        os.chmod(p, stat.S_IWRITE)
-        func(p)
-
-    shutil.rmtree(dest, onexc=_onexc)
+    if dest.exists():  # clon ya inexistente (p. ej. borrado a mano): el desregistro ya bastaba
+        _force_rmtree(dest)
     return not dest.exists()

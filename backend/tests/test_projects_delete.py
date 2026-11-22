@@ -81,6 +81,16 @@ def test_delete_while_running_409(env_dirs):
         RUNS.active = None  # cleanup (el fixture autouse también limpia)
 
 
+def test_delete_git_project_clon_inexistente_200(env_dirs):
+    # Clon borrado a mano con el proyecto aún registrado: el desregistro basta.
+    # rmtree sobre path inexistente levanta FileNotFoundError → 500 (fix wave).
+    GIT["git-x-y-a7b8c9"] = env_dirs / "workspace" / "repos" / "github.com-x-y-a7b8c9"  # NO existe
+    with TestClient(app) as c:
+        r = c.delete("/api/projects/git-x-y-a7b8c9")
+        assert r.status_code == 200
+        assert r.json() == {"ok": True, "kind": "git"}
+
+
 def test_delete_git_project_con_packs_readonly(env_dirs):
     # git-for-windows deja los packs read-only; rmtree debe limpiar el bit (E2E 2c).
     import os
