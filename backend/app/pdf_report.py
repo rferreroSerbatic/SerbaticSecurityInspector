@@ -73,6 +73,21 @@ VULN_NAMES: dict[str, str] = {
     "A10": "Suplantición de servidor (SSRF)",
 }
 
+# QA-iter 6: CVE representativo de cada categoría (idéntico byte a byte a
+# src/data/owasp.ts; verificado contra la API oficial del CVE el 2026-11-22).
+VULN_CVES: dict[str, str] = {
+    "A01": "CVE-2024-38816",  # Spring Framework: path traversal
+    "A02": "CVE-2014-0160",   # OpenSSL: Heartbleed
+    "A03": "CVE-2021-44228",  # Log4Shell (Apache Log4j2)
+    "A04": "CVE-2020-1472",   # Zerologon (MS-NRPC)
+    "A05": "CVE-2020-1938",   # Apache Tomcat AJP («Ghostcat»)
+    "A06": "CVE-2021-45046",  # Apache Log4j 2.15.0 (fix incompleto)
+    "A07": "CVE-2019-11510",  # Pulse Secure (sin autenticación)
+    "A08": "CVE-2024-3094",   # XZ Utils (cadena de suministro)
+    "A09": "CVE-2019-8123",   # Magento (registro y monitorización)
+    "A10": "CVE-2023-44256",  # Fortinet (SSRF, CWE-918)
+}
+
 # Clave de ``meta`` → etiqueta de la portada (solo se imprime si la clave existe).
 _META_LABELS: tuple[tuple[str, str], ...] = (
     ("files", "Archivos"),
@@ -519,7 +534,8 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
     def category_title(vid: str, n: int) -> None:
         nonlocal y
         gap(7 * mm)  # QA-iter 5: más aire entre apartados (antes 4 mm)
-        ensure(7 * mm)
+        cve = VULN_CVES.get(vid)
+        ensure(7 * mm + (_LEADING if cve else 0))  # QA-iter 6: línea del CVE
         c.setFillColor(_ACCENT)
         c.rect(_MARGIN, y - 3.5 * mm, 2 * mm, 4.5 * mm, fill=1, stroke=0)
         c.setFont("Helvetica-Bold", 11)
@@ -527,6 +543,20 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
         c.drawString(_MARGIN + 5 * mm, y,
                      _winansi(f"{vid} · {VULN_NAMES.get(vid, vid).upper()} ({n})"))
         y -= 7 * mm
+        if cve:
+            # QA-iter 6: CVE representativo con enlace clicable a su ficha en cve.org.
+            c.setFont("Helvetica", 8)
+            prefix = _winansi("CVE representativo: ")
+            c.setFillColor(_TXT_SEC)
+            c.drawString(_MARGIN + 5 * mm, y, prefix)
+            x2 = _MARGIN + 5 * mm + c.stringWidth(prefix, "Helvetica", 8)
+            c.setFillColor(_ACCENT)
+            c.drawString(x2, y, cve)
+            c.linkURL(
+                f"https://www.cve.org/CVERecord?id={cve}",
+                (x2, y - 1.5 * mm, c.stringWidth(cve, "Helvetica", 8), 3.5 * mm),
+            )
+            y -= _LEADING
 
     def finding_header(severity: str, title: str) -> None:
         nonlocal y

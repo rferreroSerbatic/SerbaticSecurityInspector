@@ -455,6 +455,25 @@ def test_report_pdf_titulo_principal_centrado():
     assert abs(x - (A4[0] - w) / 2) < 1  # pre-fix: alineado a la izquierda (_MARGIN)
 
 
+def test_report_pdf_categoria_con_cve_y_enlace_a_su_ficha():
+    """QA-iter 6: cada categoría del informe muestra su CVE representativo como
+    enlace clicable a su ficha en cve.org (los ids del mapeo son los mismos
+    que src/data/owasp.ts)."""
+    f = _finding("A03", 4, title="SQL injection en get_orders()")
+    data = build_report_pdf("p", {}, {}, [f])
+    assert data[:5] == b"%PDF-"
+    drawn = _drawn_strings(data)
+    assert b"CVE representativo: " in drawn
+    assert b"CVE-2021-44228" in drawn
+    assert b"https://www.cve.org/CVERecord?id=CVE-2021-44228" in data
+    assert b"/Subtype /Link" in data
+
+
+def test_report_pdf_el_mapeo_de_cves_cubre_las_10_categorias():
+    from app.pdf_report import VULN_CVES, VULN_NAMES
+    assert set(VULN_CVES) == set(VULN_NAMES)
+
+
 def test_report_pdf_aire_entre_apartados():
     """QA-iter 5: más aire entre apartados: la distancia de la portada (fecha) al
     primer título de sección crece (gap 8 mm → 12 mm)."""
