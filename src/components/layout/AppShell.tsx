@@ -38,7 +38,7 @@ export function AppShell({
       )}
       <header className="relative z-10 flex items-center justify-between gap-4 px-6 py-4">
         <span className="flex items-center gap-3">
-          <img src={logoUrl} alt="Serbatic" className="h-7" />
+          <img src={logoUrl} alt="Serbatic" className="h-8" />
           <span className="text-sm font-extrabold tracking-[0.25em]">
             <span
               className="text-neon-cyan"

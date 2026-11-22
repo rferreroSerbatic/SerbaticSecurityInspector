@@ -15,6 +15,8 @@ test('renderiza el logo y el título completo SERBATIC SECURITY INSPECTOR', () =
   const logo = screen.getByAltText('Serbatic')
   expect(logo.tagName).toBe('IMG')
   expect(logo).toHaveAttribute('src')
+  // QA-iter 10: logo un poco más grande (h-7 → h-8).
+  expect(logo).toHaveClass('h-8')
   expect(screen.getByText('SERBATIC')).toBeInTheDocument()
   expect(screen.getByText('SECURITY')).toBeInTheDocument()
   expect(screen.getByText('INSPECTOR')).toBeInTheDocument()

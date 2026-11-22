@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { BrowseModal } from './BrowseModal'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { NeonButton } from '../ui/NeonButton'
 import type { ChangeEvent } from 'react'
 import type { ProjectInfo, Source } from '../../types'
@@ -47,6 +48,8 @@ export function SourceScreen({
   const [browseOpen, setBrowseOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  // QA-iter 10: proyecto pendiente de confirmación (modal, no window.confirm).
+  const [confirmDelete, setConfirmDelete] = useState<ProjectInfo | null>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const canContinue = live
@@ -132,12 +135,8 @@ export function SourceScreen({
     }
   }
 
-  const deleteProject = async (p: ProjectInfo, _index: number) => {
-    const detail =
-      p.kind === 'git'
-        ? 'Se borrará su clon del workspace. El repositorio original no se toca.'
-        : 'La carpeta original y sus archivos no se tocan.'
-    if (!window.confirm(`¿Eliminar "${p.name}" de la lista? ${detail}`)) return
+  const deleteProject = async (p: ProjectInfo) => {
+    if (deletingId !== null) return
     setDeletingId(p.id)
     setDeleteError(null)
     try {
@@ -164,6 +163,9 @@ export function SourceScreen({
       setDeleteError('Error de conexión con el backend')
     } finally {
       setDeletingId(null)
+      // QA-iter 10: el modal se cierra al terminar (con éxito o error — el error
+      // queda visible inline bajo la lista).
+      setConfirmDelete(null)
     }
   }
 
@@ -211,17 +213,21 @@ export function SourceScreen({
                       : 'border-ink-faint opacity-60 hover:opacity-100'
                   }`}
                 >
-                  <span className="flex items-center gap-2 text-sm font-bold text-ink">
-                    <span className="text-neon-cyan">📁 {p.name}</span>
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink">
+                    <span className="truncate text-neon-cyan" title={p.name}>
+                      📁 {p.name}
+                    </span>
                     {p.kind && p.kind !== 'sample' && (
-                      <span className="font-mono text-[10px] text-neon-cyan">
+                      <span className="shrink-0 font-mono text-[10px] text-neon-cyan">
                         {p.kind === 'local' ? 'LOCAL' : 'GIT'}
                       </span>
                     )}
                   </span>
-                  <span className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-ink-dim">{p.path}</span>
-                    <span className="font-mono text-xs text-ink-faint">{p.files} archivos</span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="max-w-56 truncate font-mono text-xs text-ink-dim" title={p.path}>
+                      {p.path}
+                    </span>
+                    <span className="shrink-0 font-mono text-xs text-ink-faint">{p.files} archivos</span>
                     {(p.kind === 'local' || p.kind === 'git') && (
                       <button
                         type="button"
@@ -229,9 +235,9 @@ export function SourceScreen({
                         disabled={deletingId !== null}
                         onClick={e => {
                           e.stopPropagation()
-                          void deleteProject(p, i)
+                          setConfirmDelete(p)
                         }}
-                        className="rounded border border-ink-faint px-1.5 py-0.5 font-mono text-[10px] text-ink-faint transition-colors duration-200 hover:border-sev-critical hover:text-sev-critical disabled:cursor-not-allowed disabled:opacity-40"
+                        className="shrink-0 rounded border border-ink-faint px-1.5 py-0.5 font-mono text-[10px] text-ink-faint transition-colors duration-200 hover:border-sev-critical hover:text-sev-critical disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {deletingId === p.id ? '…' : '🗑 ELIMINAR'}
                       </button>
@@ -310,6 +316,29 @@ export function SourceScreen({
                 setBrowseOpen(false)
                 void submitLocal(p)
               }}
+            />
+            <ConfirmDialog
+              open={confirmDelete !== null}
+              title="ELIMINAR PROYECTO"
+              message={
+                confirmDelete ? (
+                  <>
+                    <p className="text-ink">¿Eliminar "{confirmDelete.name}" de la lista?</p>
+                    <p className="mt-2">
+                      {confirmDelete.kind === 'git'
+                        ? 'Se borrará su clon del workspace. El repositorio original no se toca.'
+                        : 'La carpeta original y sus archivos no se tocan.'}
+                    </p>
+                  </>
+                ) : null
+              }
+              confirmLabel="ELIMINAR"
+              confirmVariant="outline"
+              busy={deletingId !== null}
+              onConfirm={() => {
+                if (confirmDelete) void deleteProject(confirmDelete)
+              }}
+              onCancel={() => setConfirmDelete(null)}
             />
           </>
         ) : (
