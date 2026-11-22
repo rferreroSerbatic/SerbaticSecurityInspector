@@ -147,7 +147,7 @@ def browse(path: str | None = None):
     """
     try:
         p = (Path(path) if path else Path.home()).expanduser().resolve()
-    except OSError:
+    except (OSError, ValueError):
         raise HTTPException(status_code=400, detail="Ruta no válida")
     if not p.is_dir():
         raise HTTPException(status_code=400, detail="La ruta no es una carpeta")

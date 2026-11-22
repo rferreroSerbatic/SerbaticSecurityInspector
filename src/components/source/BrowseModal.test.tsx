@@ -129,3 +129,46 @@ test('error 400 del backend → mensaje inline', async () => {
   await act(async () => {})
   expect(screen.getByText('No se pudo leer la carpeta')).toBeInTheDocument()
 })
+
+const ROOT_USERS: BrowseData = {
+  path: 'C:/Users',
+  parent: 'C:/',
+  folders: [{ name: 'rferrero', path: 'C:/Users/rferrero', registered: null }],
+}
+
+test('error 400 con detail del backend → muestra el detail', async () => {
+  mockQueue([{ status: 400, body: { detail: 'La ruta no es una carpeta' } as unknown as BrowseData }])
+  render(<BrowseModal open onClose={() => {}} onUse={() => {}} />)
+  await act(async () => {})
+  expect(screen.getByText('La ruta no es una carpeta')).toBeInTheDocument()
+})
+
+test('una navegación lenta y obsoleta no pisa a una más reciente', async () => {
+  let resolveSlow!: (v: unknown) => void
+  const slow = new Promise(v => { resolveSlow = v })
+  const fn = vi.fn(async (url?: string) => {
+    const u = String(url)
+    if (u === '/api/browse') {
+      return { ok: true, status: 200, json: async () => HOME }  // open: rápido
+    }
+    if (u.includes('Documentos')) {
+      return slow.then(() => ({ ok: true, status: 200, json: async () => DOCS }))  // lenta
+    }
+    return { ok: true, status: 200, json: async () => ROOT_USERS }  // breadcrumb: rápido
+  })
+  globalThis.fetch = fn as unknown as typeof fetch
+  render(<BrowseModal open onClose={() => {}} onUse={() => {}} />)
+  await act(async () => {})  // open resuelto (HOME)
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /documentos/i }))  // navegación lenta
+  })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Users' }))  // navegación rápida (obsoleta la otra)
+  })
+  await act(async () => {
+    resolveSlow({ ok: true, status: 200, json: null })  // la lenta llega tarde
+  })
+  // El DOM muestra la carpeta de la navegación rápida, no la respuesta obsoleta.
+  expect(screen.getByRole('button', { name: /rferrero/i })).toBeInTheDocument()
+  expect(screen.queryByText('SerbaticSecurityInspector')).not.toBeInTheDocument()
+})

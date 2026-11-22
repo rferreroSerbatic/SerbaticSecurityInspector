@@ -66,3 +66,9 @@ def test_browse_registered_local_y_git(tmp_path):
         reg = {f["name"]: f["registered"] for f in j["folders"]}
         assert reg["mi app (copia)"] == "local"
         assert reg["clon-repo"] == "git"
+
+
+def test_browse_null_byte_400():
+    with TestClient(app) as c:
+        r = c.get("/api/browse", params={"path": "C:/x\x00y"})
+        assert r.status_code == 400

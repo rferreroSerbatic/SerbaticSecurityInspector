@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { NeonButton } from '../ui/NeonButton'
 
@@ -29,23 +29,34 @@ export function BrowseModal({
   const [data, setData] = useState<BrowseData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const navSeq = useRef(0)
 
   const navigate = async (target: string | null) => {
+    const seq = ++navSeq.current
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(target ? `/api/browse?path=${encodeURIComponent(target)}` : '/api/browse')
+      if (seq !== navSeq.current) return // navegación superada: se descarta
       if (res.status !== 200) {
+        let detail: string | null = null
+        try {
+          const j = (await res.json()) as { detail?: unknown } | null
+          if (typeof j?.detail === 'string') detail = j.detail
+        } catch {
+          // cuerpo no-JSON: mensaje genérico
+        }
         setData(null)
-        setError('No se pudo leer la carpeta')
+        setError(detail ?? 'No se pudo leer la carpeta')
         return
       }
       setData((await res.json()) as BrowseData)
     } catch {
+      if (seq !== navSeq.current) return
       setData(null)
       setError('No se pudo leer la carpeta')
     } finally {
-      setLoading(false)
+      if (seq === navSeq.current) setLoading(false)
     }
   }
 
