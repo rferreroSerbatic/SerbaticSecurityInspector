@@ -422,3 +422,48 @@ def test_scope_pdf_salto_de_linea_tras_el_chip_de_severidad():
     title = [y for _x, y, t in triples if t.startswith(b"1. TITULO DE PRUEBA")]
     assert len(chip) == 1 and len(title) == 1
     assert chip[0] - title[0] > 8 * mm  # pre-fix: 5 mm (chip pegado al título)
+
+
+# --- QA-iter 5: informe — salto tras chip, aire entre apartados, portada centrada ---
+
+def test_report_pdf_salto_tras_chip_de_severidad():
+    """QA-iter 5: entre el chip de severidad y el título del hallazgo debe haber
+    un salto de línea (mismo fix que el alcance en QA-iter 4): el título no debe
+    caer dentro del rectángulo del chip."""
+    f = _finding("A03", 4, title="SQL injection en get_orders()")
+    data = build_report_pdf("p", {}, {}, [f])
+    assert data[:5] == b"%PDF-"
+    triples = _drawn_triples(data)
+    chip = [y for _x, y, t in triples if t == b"CR\\315TICO"]  # «CRÍTICO» (Í = 0xCD)
+    title = [y for _x, y, t in triples if t.startswith(b"SQL injection")]
+    assert len(chip) == 1 and len(title) == 1
+    assert chip[0] - title[0] > 5 * mm  # pre-fix: 2 mm (el título caía dentro del chip)
+
+
+def test_report_pdf_titulo_principal_centrado():
+    """QA-iter 5: el título principal de la portada queda centrado horizontalmente
+    (como la portada del alcance), no alineado al margen izquierdo."""
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    data = build_report_pdf("miniapp", {}, {}, [_finding("A01", 1)])
+    assert data[:5] == b"%PDF-"
+    triples = _drawn_triples(data)
+    # La cabecera de páginas 2+ («Informe de auditoría…», minúscula) no coincide.
+    title = [(x, y) for x, y, t in triples if t.startswith(b"INFORME DE AUDITOR")]
+    assert len(title) == 1
+    x, _y = title[0]
+    w = stringWidth("INFORME DE AUDITORÍA DE SEGURIDAD", "Helvetica-Bold", 20)
+    assert abs(x - (A4[0] - w) / 2) < 1  # pre-fix: alineado a la izquierda (_MARGIN)
+
+
+def test_report_pdf_aire_entre_apartados():
+    """QA-iter 5: más aire entre apartados: la distancia de la portada (fecha) al
+    primer título de sección crece (gap 8 mm → 12 mm)."""
+    from datetime import date as _date
+    data = build_report_pdf("miniapp", {}, {}, [])
+    assert data[:5] == b"%PDF-"
+    triples = _drawn_triples(data)
+    date_y = [y for _x, y, t in triples if t == _date.today().isoformat().encode()]
+    perfil_y = [y for _x, y, t in triples if t == b"PERFIL DEL PROYECTO"]
+    assert len(date_y) == 1 and len(perfil_y) == 1
+    # pre-fix: 5.2 (línea) + 8 (gap) = 13.2 mm
+    assert date_y[0] - perfil_y[0] > 15 * mm

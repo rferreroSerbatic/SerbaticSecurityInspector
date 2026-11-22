@@ -507,7 +507,7 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
 
     def section_title(title: str) -> None:
         nonlocal y
-        gap(8 * mm)
+        gap(12 * mm)  # QA-iter 5: más aire entre apartados (antes 8 mm)
         ensure(8 * mm)
         c.setFillColor(_ACCENT)
         c.rect(_MARGIN, y - 4.5 * mm, 2 * mm, 5.5 * mm, fill=1, stroke=0)
@@ -518,7 +518,7 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
 
     def category_title(vid: str, n: int) -> None:
         nonlocal y
-        gap(4 * mm)
+        gap(7 * mm)  # QA-iter 5: más aire entre apartados (antes 4 mm)
         ensure(7 * mm)
         c.setFillColor(_ACCENT)
         c.rect(_MARGIN, y - 3.5 * mm, 2 * mm, 4.5 * mm, fill=1, stroke=0)
@@ -530,8 +530,8 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
 
     def finding_header(severity: str, title: str) -> None:
         nonlocal y
-        gap(2 * mm)
-        ensure(5 * mm + _LEADING)
+        gap(4 * mm)  # QA-iter 5: más aire entre apartados (antes 2 mm)
+        ensure(5 * mm + 2 * _LEADING)
         label = SEVERITY_ES.get(severity, (severity or "hallazgo").upper())
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(_SEV.get(severity, _TXT_SEC))
@@ -539,7 +539,9 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                5 * mm, fill=1, stroke=0)
         c.setFillColor(_WHITE)
         c.drawString(_MARGIN + 2 * mm, y - 3 * mm, _winansi(label))
-        y -= 5 * mm
+        # QA-iter 5: salto de línea tras el chip (mismo fix que el alcance en
+        # QA-iter 4): el título ya no cae dentro del rectángulo del chip.
+        y -= 5 * mm + _LEADING
         line(title, font="Helvetica-Bold")
 
     def code_box(code: str, file_name: str) -> None:
@@ -574,7 +576,11 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
     # Portada
     _draw_logo(c, y)
     y -= _LOGO_H + 10 * mm
-    line("INFORME DE AUDITORÍA DE SEGURIDAD", font="Helvetica-Bold", size=20)
+    # QA-iter 5: título principal de la portada centrado (como la del alcance).
+    c.setFont("Helvetica-Bold", 20)
+    c.setFillColor(_TXT)
+    c.drawCentredString(width / 2, y, _winansi("INFORME DE AUDITORÍA DE SEGURIDAD"))
+    y -= _LEADING
     gap(4 * mm)
     line(project_name, size=14, color=_ACCENT)
     line(date.today().isoformat(), size=10, color=_TXT_SEC)
