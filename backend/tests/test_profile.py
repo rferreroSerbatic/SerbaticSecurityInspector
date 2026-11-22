@@ -19,7 +19,9 @@ class FakeProfileLLM:
         self.calls = 0
         self.model = "qwen3.8-fp8"
 
-    async def chat(self, system, user, max_tokens=8000):
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        # on_progress: parámetro del contrato del LLMClient (tk/s en vivo, QA-iter 5);
+        # run_profile no lo usa, pero el fake sigue la firma.
         self.calls += 1
         return ChatResult(content=self.raw)
 

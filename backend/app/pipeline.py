@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 
 from app.agents.profile import run_profile
 from app.agents.vulns import build_vuln_prompt, parse_findings, validate_finding
@@ -104,6 +105,27 @@ async def run_pipeline(
         total_tokens = 0
         total_llm_s = 0.0
 
+        # QA-iter 5: tk/s en vivo → evento ``agent:progress`` con throttle de
+        # ~1 s por agente (la estimación de tokens la manda el cliente LLM).
+        last_progress: dict[str, float] = {}
+
+        def on_progress_for(v: str) -> Callable[[float, int], None]:
+            def _on_progress(elapsed: float, est_tokens: int) -> None:
+                now = time.monotonic()
+                if now - last_progress.get(v, 0.0) < 1.0:
+                    return
+                if run.status in (RunStatus.ERROR, RunStatus.CANCELLING, RunStatus.CANCELLED):
+                    return
+                last_progress[v] = now
+                emit(
+                    run,
+                    "agent:progress",
+                    vulnId=v,
+                    tokens=est_tokens,
+                    tps=round(est_tokens / elapsed, 1) if elapsed > 0 else 0,
+                )
+            return _on_progress
+
         async def agent(v: str) -> None:
             async with sem:
                 # Guard evaluado al adquirir el semáforo (fix I1 final review): un run puede
@@ -116,7 +138,7 @@ async def run_pipeline(
                 nonlocal total_tokens, total_llm_s
                 system, user = build_vuln_prompt(v, profile, scan)
                 try:
-                    res = await llm.chat(system, user)
+                    res = await llm.chat(system, user, on_progress=on_progress_for(v))
                 except LLMError as e:
                     if run.status != RunStatus.ERROR:
                         run.status = RunStatus.ERROR

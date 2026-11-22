@@ -156,6 +156,25 @@ test('cancel() cierra el stream y no emite después', async () => {
   expect(seen.length).toBe(countAtCancel)
 })
 
+test('agent:progress: tk/s en vivo antes de agent:done (QA-iter 5)', async () => {
+  okFetch()
+  const seen: AnalysisProgress[] = []
+  const cancel = createLiveAnalysisService({ tickMs: 10 }).run(RUN_OPTS, (p) => seen.push(p))
+  await vi.waitFor(() => expect(FakeEventSource.instances.length).toBe(1))
+  const es = FakeEventSource.instances[0]
+  es.emit({ type: 'run:start', t: 0, vulnIds: ['A01'] })
+  es.emit({ type: 'agent:start', t: 0.5, vulnId: 'A01' })
+  // Progreso en vivo (el backend lo manda con throttle de ~1 s por agente).
+  es.emit({ type: 'agent:progress', t: 1.5, vulnId: 'A01', tokens: 120, tps: 33.3 })
+  await vi.waitFor(() => expect(seen[seen.length - 1].tps).toBe(33.3))
+  // El agent:done final sustituye el valor en vivo (y cierra el agente).
+  es.emit({ type: 'agent:done', t: 3, vulnId: 'A01', findingsCount: 0, criticalCount: 0, tokens: 160, tps: 38.5 })
+  const last = seen[seen.length - 1]
+  expect(last.tps).toBe(38.5)
+  expect(last.agents[0].status).toBe('done')
+  cancel()
+})
+
 test('interpolación: progreso fino entre agent:start y agent:done', async () => {
   okFetch()
   const seen: AnalysisProgress[] = []

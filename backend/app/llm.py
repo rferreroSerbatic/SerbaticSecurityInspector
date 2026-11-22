@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
@@ -56,7 +57,19 @@ class LLMClient:
     def model(self) -> str:
         return self._model
 
-    async def chat(self, system: str, user: str, max_tokens: int = 8000) -> ChatResult:
+    async def chat(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 8000,
+        on_progress: Callable[[float, int], None] | None = None,
+    ) -> ChatResult:
+        """Chat con streaming SSE.
+
+        ``on_progress(elapsed_s, est_tokens)`` se invoca en cada chunk con
+        contenido durante el stream (QA-iter 5, tk/s en vivo): estimación de
+        ~4 caracteres por token; el llamador aplica el throttle del evento.
+        """
         payload = {
             "model": self._model,
             "messages": [
@@ -71,6 +84,7 @@ class LLMClient:
         }
         t0 = time.monotonic()
         content_parts: list[str] = []
+        n_chars = 0
         usage: dict = {}
         done = False
         try:
@@ -98,6 +112,9 @@ class LLMClient:
                         piece = (choice.get("delta") or {}).get("content")
                         if isinstance(piece, str) and piece:
                             content_parts.append(piece)
+                            if on_progress is not None:
+                                n_chars += len(piece)
+                                on_progress(time.monotonic() - t0, n_chars // 4)
         except httpx.HTTPError as exc:
             raise LLMError(f"error de red hablando con el LLM: {exc}") from exc
         except LLMError:

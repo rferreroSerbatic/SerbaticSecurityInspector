@@ -155,6 +155,13 @@ export function createLiveAnalysisService(opts: LiveOptions = {}): AnalysisServi
             emit()
             break
           }
+          case 'agent:progress': {
+            // QA-iter 5: tk/s en vivo (el backend lo manda con throttle de ~1 s
+            // por agente); agent:done y run:done siguen mandando el valor final.
+            if (typeof ev.tps === 'number') state.tps = ev.tps
+            emit()
+            break
+          }
           case 'agent:done': {
             const a = state.agents.find(x => x.vulnId === ev.vulnId)
             if (a) {

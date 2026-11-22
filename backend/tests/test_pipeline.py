@@ -3,6 +3,7 @@
 import asyncio
 import json
 import re
+import time
 
 from app.llm import ChatResult, LLMError
 from app.pipeline import run_pipeline
@@ -72,7 +73,9 @@ class FakeVulnLLM:
         self.systems = []  # registro de los `system` recibidos (add-on: contrato del perfilador)
         self.model = "qwen3.8-fp8"
 
-    async def chat(self, system, user, max_tokens=8000):
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        # on_progress: el pipeline lo pasa (tk/s en vivo, QA-iter 5); el fake lo ignora
+        # (ProgressFakeLLM sí lo invoca para probar el throttle).
         self.systems.append(system)
         if "perfilador" in system:
             return ChatResult(content=self.profile_raw, prompt_tokens=100, completion_tokens=10, elapsed_s=0.1)
@@ -288,6 +291,42 @@ def test_pipeline_consolidates_cross_category_duplicates():
     assert done["findings"][0]["alsoCategories"] == ["A03"]
     assert any("consolidados 1 hallazgo(s) duplicado(s) entre categorías" in e.get("message", "")
                for e in run.events)
+
+
+class ProgressFakeLLM(FakeVulnLLM):
+    """FakeVulnLLM que simula chunks en vuelo: invoca ``on_progress`` 3 veces
+    (misma instante de reloj congelado) en cada llamada de agente, para probar
+    el throttle del pipeline (solo debe emitirse 1 ``agent:progress``)."""
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.progress_calls = 0
+
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        res = await super().chat(system, user, max_tokens=max_tokens)
+        if "perfilador" not in system and on_progress is not None:
+            for _ in range(3):
+                on_progress(2.0, 40)
+                self.progress_calls += 1
+        return res
+
+
+def test_pipeline_emite_agent_progress_con_throttle(monkeypatch):
+    """QA-iter 5: el tk/s en vivo llega como eventos ``agent:progress``
+    (vulnId, tokens, tps) con throttle de ~1 s por agente: con el reloj
+    congelado, 3 «chunks» en el mismo instante producen un único evento.
+    El ``agent:done`` final no cambia (usage real de la llamada)."""
+    monkeypatch.setattr(time, "monotonic", lambda: 2.0)
+    run = RunRegistry().start("miniapp", ["A01"])
+    llm = ProgressFakeLLM({"A01": A01_JSON}, PROFILE_JSON)
+    asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01"], run, concurrency=1))
+    prog = [e for e in run.events if e["type"] == "agent:progress"]
+    assert len(prog) == 1  # throttle: 3 callbacks en el mismo instante → 1 evento
+    assert prog[0]["vulnId"] == "A01"
+    assert prog[0]["tokens"] == 40 and prog[0]["tps"] == 20.0
+    done = [e for e in run.events if e["type"] == "agent:done"]
+    assert done and done[0]["tokens"] == 5 and done[0]["tps"] == 25.0
+    assert run.status == RunStatus.DONE
 
 
 def test_pipeline_finding_without_optional_fields_gets_empty_strings():

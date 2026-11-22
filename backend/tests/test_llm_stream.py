@@ -98,3 +98,22 @@ async def test_stream_empty_content_raises():
     with pytest.raises(LLMError, match="contenido"):
         await c.chat("s", "u")
     await c.close()
+
+
+@pytest.mark.anyio
+async def test_chat_on_progress_reporta_en_vivo():
+    """QA-iter 5: ``on_progress`` recibe la estimación en vuelo (elapsed,
+    caracteres acumulados / 4) en cada chunk con contenido."""
+    calls: list[tuple[float, int]] = []
+    c = client_with([
+        {"choices": [{"delta": {"content": "hola" * 10}}]},
+        {"choices": [{"delta": {"content": "mundo" * 10}}]},
+        {"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": 100}},
+    ])
+    out = await c.chat("s", "u", on_progress=lambda e, t: calls.append((e, t)))
+    await c.close()
+    assert out.content == "hola" * 10 + "mundo" * 10
+    assert len(calls) == 2  # el chunk de usage no dispara la callback
+    assert all(e > 0 for e, _ in calls)
+    assert calls[0][1] == 10  # 40 caracteres / 4
+    assert calls[1][1] == 22  # acumulativo: (40 + 50) / 4

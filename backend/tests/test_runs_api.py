@@ -49,7 +49,8 @@ class FakeVulnLLM:
         self.systems = []  # registro de los `system` recibidos (add-on: contrato del perfilador)
         self.model = "qwen3.8-fp8"
 
-    async def chat(self, system, user, max_tokens=8000):
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        # on_progress: el pipeline lo pasa (tk/s en vivo, QA-iter 5); el fake lo ignora.
         self.systems.append(system)
         if "perfilador" in system:
             return ChatResult(content=self.profile_raw, prompt_tokens=100, completion_tokens=10, elapsed_s=0.1)

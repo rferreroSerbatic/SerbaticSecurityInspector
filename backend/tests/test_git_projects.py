@@ -38,7 +38,8 @@ class FakeGitLLM:
     """Fake autocontenido (misma forma que el de test_local_projects.py, sin imports cruzados)."""
     model = "qwen3.8-fp8"
 
-    async def chat(self, system, user, max_tokens=8000):
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        # on_progress: el pipeline lo pasa (tk/s en vivo, QA-iter 5); el fake lo ignora.
         if "perfilador" in system:
             prof = {"name": "p", "language": "JavaScript", "frameworks": [],
                     "entry_points": [], "description": "p", "notes": ""}
