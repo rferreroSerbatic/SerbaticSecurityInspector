@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from app.agents.guides import find_file_content, one_guide
+from app.agents.guides import find_file_content, one_guide, run_guides
 from app.agents.profile import Profile
 from app.config import load_settings
 from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git, remove_git, scan_workspace
@@ -305,14 +305,40 @@ class ReportPdfBody(BaseModel):
     profile: dict
     meta: dict
     findings: list[dict]
+    projectId: str | None = None
 
 
 @app.post("/api/reports/full-pdf")
-def full_pdf(body: ReportPdfBody):
-    """Informe PDF completo: portada + perfil + hallazgos por categoría."""
+async def full_pdf(body: ReportPdfBody):
+    """Informe PDF completo: portada + perfil + hallazgos por categoría.
+
+    Fase 2d.1: con `projectId` y hallazgos sin `guide`, se generan las guías
+    faltantes antes de dibujar (pool `llm_concurrency`). 404 si el proyecto ya
+    no se resuelve (el front reintenta sin `projectId`)."""
+    settings = load_settings()
+    if body.projectId:
+        got = await asyncio.to_thread(
+            lambda: local_analyze(body.projectId)
+            or git_analyze(body.projectId)
+            or get_project(settings.samples_dir, body.projectId))
+        if got is None:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        project, scan = got
+        # Solo las faltantes (diseño G3: sin regeneración de guías ya generadas).
+        pending = [f for f in body.findings if not f.get("guide")]
+        if pending:
+            llm = build_llm()
+            try:
+                await run_guides(llm, pending, scan,
+                                 _profile_from_dict(body.profile),
+                                 project.name, None, settings.llm_concurrency)
+            finally:
+                await llm.close()
     slug = re.sub(r"[^a-z0-9]+", "-", body.projectName.lower()).strip("-") or "proyecto"
+    pdf = await asyncio.to_thread(build_report_pdf, body.projectName, body.profile,
+                                  body.meta, body.findings)
     return Response(
-        content=build_report_pdf(body.projectName, body.profile, body.meta, body.findings),
+        content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="informe-{slug}.pdf"'},
     )

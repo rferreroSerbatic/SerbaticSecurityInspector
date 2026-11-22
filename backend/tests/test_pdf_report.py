@@ -10,6 +10,33 @@ from reportlab.lib.units import mm
 from app.main import app
 from app.pdf_report import _MARGIN, _winansi, build_report_pdf, build_scope_pdf
 
+import pytest
+
+from app.llm import ChatResult
+
+
+class FakeGuidePDF:
+    """Guía canned para los tests de full-pdf con projectId (Fase 2d.1)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def chat(self, system, user, max_tokens=8000, on_progress=None):
+        self.calls += 1
+        return ChatResult(content="## RESUMEN\nguía pdf", prompt_tokens=10,
+                          completion_tokens=7, elapsed_s=0.1)
+
+    async def close(self):
+        pass
+
+
+@pytest.fixture
+def samples_dir(tmp_path):
+    demo = tmp_path / "miniapp"
+    demo.mkdir()
+    (demo / "app.js").write_text("var sql = 'x';\n", encoding="utf-8")
+    return tmp_path
+
 
 def _scope_content(data: bytes) -> bytes:
     """Stream de contenido del scope PDF (ahora sin comprimir; hay también el stream del logo)."""
@@ -581,3 +608,93 @@ def test_report_pdf_guide_caracteres_fuera_winansi():
                             [_finding("A03", 4, guide="## RESUMEN\nataque → listo 🔒")])
     assert data[:5] == b"%PDF-"
     assert _b("GUÍA DE EXPLOTACIÓN:") in data
+
+
+def test_full_pdf_con_projectId_genera_guias_faltantes(monkeypatch, samples_dir):
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+    fake = FakeGuidePDF()
+    monkeypatch.setattr("app.main.build_llm", lambda: fake)
+    client = TestClient(app)
+    fs = [_finding("A03", 1, file="app.js")]
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {},
+        "meta": {"files": 1, "lines": 1, "durationMin": 1},
+        "findings": fs, "projectId": "miniapp"})
+    assert r.status_code == 200
+    assert fake.calls == 1
+    assert _b("GUÍA DE EXPLOTACIÓN:") in r.content
+    assert _b("RESUMEN") in r.content
+    assert _b("guía pdf") in r.content
+
+
+def test_full_pdf_projectId_inexistente_404(monkeypatch, samples_dir):
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+    client = TestClient(app)
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {}, "meta": {},
+        "findings": [_finding("A03", 1)], "projectId": "no-existe"})
+    assert r.status_code == 404
+
+
+def test_full_pdf_sin_projectId_no_llm(monkeypatch):
+    """RF5: sin projectId no se resuelve proyecto ni se genera nada."""
+    def _boom():
+        raise AssertionError("build_llm no debe llamarse sin projectId")
+    monkeypatch.setattr("app.main.build_llm", _boom)
+    client = TestClient(app)
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {}, "meta": {},
+        "findings": [_finding("A03", 1)]})
+    assert r.status_code == 200
+    assert _b("GUÍA DE EXPLOTACIÓN:") not in r.content
+
+
+def test_full_pdf_guide_vacia_se_genera(monkeypatch, samples_dir):
+    """RF3: guide == "" se trata como faltante y se genera."""
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+    fake = FakeGuidePDF()
+    monkeypatch.setattr("app.main.build_llm", lambda: fake)
+    client = TestClient(app)
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {}, "meta": {},
+        "findings": [dict(_finding("A03", 1, file="app.js"), guide="")],
+        "projectId": "miniapp"})
+    assert r.status_code == 200
+    assert fake.calls == 1
+    assert _b("GUÍA DE EXPLOTACIÓN:") in r.content
+
+
+def test_full_pdf_todas_con_guide_no_llm(monkeypatch, samples_dir):
+    """RF4: projectId + todos los findings ya llevan guía -> se resuelve el proyecto
+    pero no se llama al LLM."""
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+
+    def _boom():
+        raise AssertionError("build_llm no debe llamarse: todos los findings tienen guía")
+    monkeypatch.setattr("app.main.build_llm", _boom)
+    client = TestClient(app)
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {}, "meta": {},
+        "findings": [dict(_finding("A03", 1, file="app.js"), guide="## RESUMEN\nguía previa")],
+        "projectId": "miniapp"})
+    assert r.status_code == 200
+    assert _b("GUÍA DE EXPLOTACIÓN:") in r.content
+
+
+def test_full_pdf_batch_mixto_no_regenera_las_que_llevan(monkeypatch, samples_dir):
+    """Solo las faltantes: una que ya lleva guía no se regenera ni se sobreescribe."""
+    monkeypatch.setenv("SAMPLES_DIR", str(samples_dir))
+    fake = FakeGuidePDF()
+    monkeypatch.setattr("app.main.build_llm", lambda: fake)
+    client = TestClient(app)
+    r = client.post("/api/reports/full-pdf", json={
+        "projectName": "P", "profile": {}, "meta": {},
+        "findings": [
+            dict(_finding("A03", 1, file="app.js")),
+            dict(_finding("A01", 2, file="app.js"), guide="## RESUMEN\nguía previa"),
+        ],
+        "projectId": "miniapp"})
+    assert r.status_code == 200
+    assert fake.calls == 1  # solo la faltante
+    assert r.content.count(_b("guía pdf")) == 1
+    assert r.content.count(_b("guía previa")) == 1
