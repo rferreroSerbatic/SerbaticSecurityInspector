@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -13,7 +14,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_settings
-from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git, remove_git
+from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git, remove_git, scan_workspace
 from app.llm import LLMClient
 from app.local_projects import LOCAL, local_analyze, local_list, register_local, remove_local, resolve_local
 from app.pdf_report import build_report_pdf, build_scope_pdf
@@ -22,7 +23,15 @@ from app.projects import get_project, list_projects
 from app.runs import TERMINAL, TERMINAL_EVENTS, RunRegistry, RunState, RunStatus
 from app.scanner import ScanResult
 
-app = FastAPI(title="Serbatic Security Inspector API")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Arranque: re-registra los clones existentes de workspace/repos/ (el
+    registro GIT es en memoria; sin esto no aparecerían hasta re-añadirlos)."""
+    scan_workspace()
+    yield
+
+
+app = FastAPI(title="Serbatic Security Inspector API", lifespan=lifespan)
 
 # Registro global de runs (single-user: un run activo a la vez)
 RUNS = RunRegistry()
@@ -223,15 +232,19 @@ async def run_events(run_id: str):
 class ScopePdfBody(BaseModel):
     text: str
     title: str = "Alcance técnico de mejora"
+    projectName: str = ""
 
 
 @app.post("/api/reports/scope-pdf")
 def scope_pdf(body: ScopePdfBody):
     """PDF real del texto del alcance (el front lo descarga como attachment)."""
+    # QA-iter 4: nombre dinámico con el proyecto analizado (misma regla que full_pdf).
+    slug = re.sub(r"[^a-z0-9]+", "-", body.projectName.lower()).strip("-")
+    filename = f"alcance-{slug}.pdf" if slug else "alcance.pdf"
     return Response(
         content=build_scope_pdf(body.text, body.title),
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="alcance.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

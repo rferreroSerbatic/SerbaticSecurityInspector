@@ -75,6 +75,27 @@ def _force_rmtree(path: Path) -> None:
     shutil.rmtree(path, onexc=_onexc)
 
 
+def scan_workspace() -> None:
+    """Re-registra en memoria los clones existentes de ``workspace/repos/``.
+
+    El registro es en memoria: sin esto, los clones de sesiones anteriores
+    desaparecerían de ``GET /api/projects`` hasta re-añadirlos (QA-iter 4).
+    El pid ``git-<nombre carpeta>`` es exactamente el que genera
+    ``register_git`` para la misma URL, así que re-añadir reutiliza el clon.
+    Best-effort: si el escaneo falla, el usuario puede re-añadir a mano.
+    """
+    repos = WORKSPACE / "repos"
+    if not repos.is_dir():
+        return
+    try:
+        entries = sorted(repos.iterdir())
+    except OSError:
+        return
+    for d in entries:
+        if d.is_dir() and (d / ".git").exists():
+            GIT.setdefault(f"git-{d.name}", d)
+
+
 def register_git(url: str) -> ProjectInfo:
     normalized = normalize_git_url(url)
     if normalized is None:

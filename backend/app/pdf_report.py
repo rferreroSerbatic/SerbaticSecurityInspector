@@ -341,7 +341,9 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
                 c.setFont("Helvetica-Bold", 8)
                 c.drawString(text_x + 2 * mm, y - 2 * mm, _winansi(label))
 
-            rows.append((_CARD_CHIP_H, chip_row))
+            # QA-iter 4: un salto de línea entre el chip y el título (el chip queda
+            # fijo al tope de la caja; el título baja una línea de leading).
+            rows.append((_CARD_CHIP_H + _LEADING, chip_row))
 
         for wl in _wrap_lines(c, f"{num}. {card_title}", "Helvetica-Bold", 11, inner_w):
             def title_row(wl=wl) -> None:
@@ -439,8 +441,8 @@ def build_scope_pdf(text: str, title: str = "Alcance técnico de mejora") -> byt
 
     for blk in blocks:
         if blk["kind"] == "card":
-            # Sin cabecera de card huérfana: chip + título + 1 línea deben caber.
-            ensure(_CARD_PAD * 2 + _CARD_CHIP_H + _CARD_TITLE_H + _LEADING)
+            # Sin cabecera de card huérfana: chip (+ salto, QA-iter 4) + título + 1 línea deben caber.
+            ensure(_CARD_PAD * 2 + _CARD_CHIP_H + _LEADING + _CARD_TITLE_H + _LEADING)
             draw_card(blk["num"], blk["title"], blk["severity"], blk["body"])
         else:
             draw_plain(blk["body"])

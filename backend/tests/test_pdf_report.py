@@ -5,6 +5,7 @@ import zlib
 
 from fastapi.testclient import TestClient
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
 
 from app.main import app
 from app.pdf_report import _MARGIN, build_report_pdf, build_scope_pdf
@@ -48,6 +49,23 @@ def test_endpoint_scope_pdf():
     assert r.headers["content-type"] == "application/pdf"
     assert "attachment" in r.headers["content-disposition"]
     assert r.content[:5] == b"%PDF-"
+
+
+def test_endpoint_scope_pdf_filename_con_proyecto():
+    """QA-iter 4: el PDF se descarga como alcance-<proyecto>.pdf (misma regla que informe-<proyecto>.pdf)."""
+    r = TestClient(app).post(
+        "/api/reports/scope-pdf",
+        json={"text": "texto de prueba", "projectName": "Mi App (E2E)"},
+    )
+    assert r.status_code == 200
+    assert r.headers["content-disposition"] == 'attachment; filename="alcance-mi-app-e2e.pdf"'
+
+
+def test_endpoint_scope_pdf_filename_sin_proyecto():
+    """Sin projectName (cliente antiguo) el nombre sigue siendo alcance.pdf."""
+    r = TestClient(app).post("/api/reports/scope-pdf", json={"text": "texto de prueba"})
+    assert r.status_code == 200
+    assert r.headers["content-disposition"] == 'attachment; filename="alcance.pdf"'
 
 
 def _finding(fv, line, **kw):
@@ -380,3 +398,27 @@ def test_scope_pdf_g2_card_partida_contiguo_entre_paginas():
         assert lo2 - hi1 <= 0.05  # pág. 1: contiguo, sin huecos > 0.05 pt (Fix 4 en el salto)
     top2 = max(y + h for _x, y, _w, h, _op in bg2)
     assert abs(top2 - (A4[1] - _MARGIN)) < 0.05  # pág. 2: el más alto llega al tope (Fix 4)
+
+
+# --- QA-iter 4: salto de línea entre el chip de severidad y el título ---
+def _drawn_triples(data: bytes) -> list[tuple[float, float, bytes]]:
+    """(x, y, texto) de cada cadena dibujada: reportlab emite «1 0 0 1 x y Tm (texto) Tj»."""
+    return [
+        (float(x), float(y), t)
+        for x, y, t in re.findall(rb"1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj", data)
+    ]
+
+
+def test_scope_pdf_salto_de_linea_tras_el_chip_de_severidad():
+    """Entre el chip (p. ej. «ALTO») y el título de la card debe haber un salto
+    de línea: el chip queda fijo al tope de la caja y el título baja una línea."""
+    data = build_scope_pdf(
+        "ALCANCE\n\n1. TITULO DE PRUEBA (A03 INYECCIÓN) — ALTO\n"
+        "Objetivo: corregir cosa.\nEstimación: 1 h · Prioridad: alta"
+    )
+    assert data[:5] == b"%PDF-"
+    triples = _drawn_triples(data)
+    chip = [y for _x, y, t in triples if t == b"ALTO"]
+    title = [y for _x, y, t in triples if t.startswith(b"1. TITULO DE PRUEBA")]
+    assert len(chip) == 1 and len(title) == 1
+    assert chip[0] - title[0] > 8 * mm  # pre-fix: 5 mm (chip pegado al título)
