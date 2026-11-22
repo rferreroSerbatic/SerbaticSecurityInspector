@@ -1341,7 +1341,7 @@ projs = c.get(f"{B}/api/projects").json()
 proj = [p for p in projs if p["name"] == "DEMO-Injection"][0]
 
 r = c.post(f"{B}/api/analyze", json={"projectId": proj["id"],
-                                     "vulnIds": [f"A0{i:02d}" for i in range(1, 11)]})
+                                     "vulnIds": [f"A{i:02d}" for i in range(1, 11)]})
 assert r.status_code == 202, r.text
 run_id = r.json()["runId"]
 events = []
@@ -1441,11 +1441,11 @@ El coordinador, tras la final review: push único + tag `v0.4.1` + bookkeeping
 
 ## Progreso (Fase 2d.1)
 
-- [ ] Task 1 — samples corregidos (SQLi en DEMO-Injection, secretos en admin.js) + runs reales de verificación
-- [ ] Task 2 — `one_guide` + `run_guides(run=None)` (guides.py)
-- [ ] Task 3 — revert de la oleada 3 del pipeline (R3-1 conservado)
-- [ ] Task 4 — `POST /api/guides` (guía bajo demanda al pinchar)
-- [ ] Task 5 — `full-pdf` con `projectId` (guías faltantes al exportar)
-- [ ] Task 6 — front: botón bajo demanda + modal (carga/error/REINTENTAR) + export con `projectId`
-- [ ] Task 7 — E2E real de cierre + docs + cierre (push + tag `v0.4.1` del coordinador)
+- [x] Task 1 — samples corregidos (SQLi en DEMO-Injection, secretos en admin.js) + runs reales de verificación
+- [x] Task 2 — `one_guide` + `run_guides(run=None)` (guides.py)
+- [x] Task 3 — revert de la oleada 3 del pipeline (R3-1 conservado)
+- [x] Task 4 — `POST /api/guides` (guía bajo demanda al pinchar)
+- [x] Task 5 — `full-pdf` con `projectId` (guías faltantes al exportar)
+- [x] Task 6 — front: botón bajo demanda + modal (carga/error/REINTENTAR) + export con `projectId`
+- [x] Task 7 — E2E real de cierre + docs + cierre (push + tag `v0.4.1` del coordinador)
 

@@ -2,7 +2,7 @@
 
 Herramienta web de auditoría de seguridad de código. **La propia aplicación ejecuta el análisis**: un motor de 12 agentes LLM (1 perfilador + 10 especialistas, uno por categoría OWASP Top 10, + 1 de guías de explotación bajo demanda) audita el proyecto contra tu endpoint LLM OpenAI-compatible y emite el progreso en vivo a una UI React de estética cyberpunk.
 
-**Estado: Fase 2d.1 completa (tag v0.4.1)** — motor de análisis real + modo live en el front + proyectos propios (carpeta local y repo git) + streaming LLM + informe PDF completo + PDF claro para cliente + guía de explotación por hallazgo bajo demanda (al pinchar «CÓMO EXPLOTAR» o al exportar el informe).
+**Estado: Fase 2d.1 completa (tag `v0.4.1`)** — motor de análisis real + modo live en el front + proyectos propios (carpeta local y repo git) + streaming LLM + informe PDF completo + PDF claro para cliente + guía de explotación por hallazgo bajo demanda (al pinchar «CÓMO EXPLOTAR» o al exportar el informe).
 
 ## Cómo funciona
 
@@ -17,7 +17,7 @@ Herramienta web de auditoría de seguridad de código. **La propia aplicación e
 - **Backend (FastAPI, Python)**: escanea el proyecto (archivos de código + manifiestos), ejecuta un pipeline de 2 oleadas — **perfilador** (lenguaje, frameworks, entry points) → **10 agentes de vulnerabilidad en paralelo** — y, bajo demanda, una **guía de explotación por hallazgo** (al pinchar «CÓMO EXPLOTAR» o al exportar el informe); emite por SSE: arranque, perfil, agentes, log de hallazgos `[SEVERIDAD] archivo:linea — título` y resultado final.
 - **Agentes (12)**: 1 perfilador + 1 especialista por categoría **OWASP Top 10** — A01 control de acceso, A02 criptografía, A03 inyección, A04 diseño inseguro, A05 configuración, A06 componentes vulnerables, A07 identificación/autenticación, A08 ejecución de código no verificado, A09 registro/monitoreo, A10 integraciones de terceros (SSRF) — + 1 de **guías de explotación** (bajo demanda: una por hallazgo, al pinchar o al exportar). Cada agente tiene su prompt propio; los hallazgos se **validan contra el escaneo real** (el archivo debe existir y la línea estar en rango): lo que no se ancla al código se descarta.
 - **Frontend (React + Vite + TypeScript + Tailwind)**: autodetecta el backend (`GET /api/health`, timeout 1500 ms). Si hay → **modo live** (proyectos reales, análisis real con modelo y velocidad en pantalla `⚡ modelo · N tk/s`, resumen con snippet/exploit/solución, alcance técnico exportable a PDF). Si no → **modo mock** (demo sin backend, con los proyectos demo).
-- **CÓMO EXPLOTAR**: guía de explotación paso a paso por hallazgo (oleada 3 del pipeline) — vista en modal + bloque en el informe PDF de análisis.
+- **CÓMO EXPLOTAR**: guía de explotación paso a paso por hallazgo (bajo demanda: al pinchar «CÓMO EXPLOTAR» o al exportar el informe) — vista en modal + bloque en el informe PDF de análisis.
 - **E2E verificado con LLM real**: DVWA → 126 hallazgos en ~2 min (Fase 2a) y 51 en ~190 s con streaming (Fase 2b); `mi app (e2e)` → 2 hallazgos en ~10 s (evidencia en `PROGRESS.md`).
 
 ## Requisitos
@@ -106,7 +106,7 @@ npm run build                                         # tsc --noEmit + vite buil
 | `backend/app/llm.py` | Cliente LLM OpenAI-compatible (usage + tiempo por llamada) |
 | `backend/app/agents/profile.py` | Agente perfilador (con fallback por reglas) |
 | `backend/app/agents/vulns.py` | Prompts A01–A10, parse tolerante y validación anti-alucinación |
-| `backend/app/pipeline.py` | Pipeline de 3 oleadas + eventos del contrato SSE |
+| `backend/app/pipeline.py` | Pipeline de 2 oleadas + eventos del contrato SSE |
 | `backend/app/runs.py` | Registro de runs: slot único, cancel y supersede |
 | `backend/app/main.py` | API: `health`, `projects`, `analyze`, `runs/{id}/events` (SSE con replay), `cancel`, `reports/scope-pdf` |
 | `src/services/liveAnalysisService.ts` | Servicio live (SSE) tras la interfaz `AnalysisService` |
