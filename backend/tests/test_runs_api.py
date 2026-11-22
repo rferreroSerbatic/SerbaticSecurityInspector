@@ -41,14 +41,11 @@ class FakeVulnLLM:
     Implementa `close()` porque la API lo llama en `finally`."""
 
     # usage fijo y determinista: perfil 10 tokens/0,1 s · agente 5 tokens/0,2 s (tps 25)
-    def __init__(self, canned_by_vuln, profile_raw, fail_vulns=(), delay=0.0,
-                 guide_raw: str = "## RESUMEN\nguía de prueba"):
+    def __init__(self, canned_by_vuln, profile_raw, fail_vulns=(), delay=0.0):
         self.canned_by_vuln = canned_by_vuln
         self.profile_raw = profile_raw
         self.fail_vulns = set(fail_vulns)
         self.delay = delay
-        self.guide_raw = guide_raw
-        self.guide_calls = 0
         self.systems = []  # registro de los `system` recibidos (add-on: contrato del perfilador)
         self.model = "qwen3.8-fp8"
 
@@ -57,9 +54,6 @@ class FakeVulnLLM:
         self.systems.append(system)
         if "perfilador" in system:
             return ChatResult(content=self.profile_raw, prompt_tokens=100, completion_tokens=10, elapsed_s=0.1)
-        if "guías de explotación" in system:
-            self.guide_calls += 1
-            return ChatResult(content=self.guide_raw, prompt_tokens=100, completion_tokens=7, elapsed_s=0.1)
         m = re.search(r"Categoría: (A\d+)", user)
         v = m.group(1)
         if v in self.fail_vulns:

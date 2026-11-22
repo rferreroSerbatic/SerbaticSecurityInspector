@@ -5,8 +5,6 @@ import json
 import re
 import time
 
-import pytest
-
 from app.llm import ChatResult, LLMError
 from app.pipeline import run_pipeline
 from app.runs import RunRegistry, RunStatus
@@ -67,14 +65,11 @@ class FakeVulnLLM:
     Implementa `close()` porque la API lo llama en `finally`."""
 
     # usage fijo y determinista: perfil 10 tokens/0,1 s · agente 5 tokens/0,2 s (tps 25)
-    def __init__(self, canned_by_vuln, profile_raw, fail_vulns=(), delay=0.0,
-                 guide_raw: str = "## RESUMEN\nguía de prueba"):
+    def __init__(self, canned_by_vuln, profile_raw, fail_vulns=(), delay=0.0):
         self.canned_by_vuln = canned_by_vuln
         self.profile_raw = profile_raw
         self.fail_vulns = set(fail_vulns)
         self.delay = delay
-        self.guide_raw = guide_raw
-        self.guide_calls = 0
         self.systems = []  # registro de los `system` recibidos (add-on: contrato del perfilador)
         self.model = "qwen3.8-fp8"
 
@@ -84,9 +79,6 @@ class FakeVulnLLM:
         self.systems.append(system)
         if "perfilador" in system:
             return ChatResult(content=self.profile_raw, prompt_tokens=100, completion_tokens=10, elapsed_s=0.1)
-        if "guías de explotación" in system:
-            self.guide_calls += 1
-            return ChatResult(content=self.guide_raw, prompt_tokens=100, completion_tokens=7, elapsed_s=0.1)
         m = re.search(r"Categoría: (A\d+)", user)
         v = m.group(1)
         if v in self.fail_vulns:
@@ -124,11 +116,8 @@ def test_pipeline_full_sequence():
     assert done["A01"]["tokens"] == 5 and done["A01"]["tps"] == 25.0
     final = run.events[-1]
     assert final["meta"]["model"] == "qwen3.8-fp8"
-    assert final["meta"]["totalTokens"] == 24  # 10 de agentes + 2×7 de guías
-    assert final["meta"]["avgTps"] == 40.0  # 24 tokens / 0,6 s
-    assert all("guide" in f and f["guide"].startswith("## RESUMEN") for f in run.findings)
-    assert any("Guías de explotación: 2 hallazgo(s) → generando…" in e.get("message", "")
-               for e in run.events)
+    assert final["meta"]["totalTokens"] == 10  # 2 agentes x 5 tokens
+    assert final["meta"]["avgTps"] == 25.0  # 10 tokens / 0,4 s
 
 
 def test_pipeline_llm_error_emits_error_and_finishes():
@@ -354,49 +343,23 @@ def test_pipeline_finding_without_optional_fields_gets_empty_strings():
     assert run.findings[0]["exploit"] == ""
 
 
-def test_pipeline_wave3_run_done_findings_del_evento_llevan_guide():
-    run = RunRegistry().start("miniapp", ["A01"])
-    llm = FakeVulnLLM({"A01": A01_JSON}, PROFILE_JSON)
-    asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01"], run, concurrency=1))
-    done = run.events[-1]
-    assert done["type"] == "run:done"
-    assert done["findings"][0]["guide"] == llm.guide_raw
-    assert done["meta"]["totalTokens"] == 12   # 5 agente + 7 guía
-    assert done["meta"]["avgTps"] == 40.0      # 12 tokens / 0,3 s
-
-
-def test_pipeline_wave3_cancel_en_oleada2_salta_guías():
-    """Review Focus 4: cancel justo al terminar la oleada 2 → oleada 3 sin gastar."""
+def test_pipeline_cancel_en_oleada2_conserva_findings_del_agente_en_vuelo():
+    """R3-1 (2d): cancel justo al terminar la oleada 2 -> CANCELLING no es terminal:
+    los findings del agente en vuelo llegan en run:cancelled. (2d.1: sin oleada 3,
+    el finding no lleva guía.)"""
     run = RunRegistry().start("miniapp", ["A01"])
     llm = FakeVulnLLM({"A01": A01_JSON}, PROFILE_JSON)
     orig_chat = llm.chat
 
     async def cancel_after_agent(system, user, max_tokens=8000, on_progress=None):
         res = await orig_chat(system, user, max_tokens=max_tokens, on_progress=on_progress)
-        if "perfilador" not in system and "guías de explotación" not in system:
+        if "perfilador" not in system:
             run.status = RunStatus.CANCELLING
         return res
 
     llm.chat = cancel_after_agent
     asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01"], run, concurrency=1))
+    cancelled = run.events[-1]
     assert types(run.events)[-1] == "run:cancelled"
-    assert llm.guide_calls == 0
-    assert "guide" not in run.findings[0]
-
-
-def test_pipeline_wave3_cancel_en_vuelo_de_guia():
-    run = RunRegistry().start("miniapp", ["A01"])
-    llm = FakeVulnLLM({"A01": A01_JSON}, PROFILE_JSON)
-    orig_chat = llm.chat
-
-    async def cancel_on_guide(system, user, max_tokens=8000, on_progress=None):
-        if "guías de explotación" in system:
-            run.status = RunStatus.CANCELLING
-            raise asyncio.CancelledError()
-        return await orig_chat(system, user, max_tokens=max_tokens, on_progress=on_progress)
-
-    llm.chat = cancel_on_guide
-    with pytest.raises(asyncio.CancelledError):
-        asyncio.run(run_pipeline(llm, scan, "miniapp", ["A01"], run, concurrency=1))
-    assert types(run.events)[-1] == "run:cancelled"
-    assert "guide" not in run.findings[0]
+    assert cancelled["findings"][0]["id"] == "A01-1"
+    assert "guide" not in cancelled["findings"][0]

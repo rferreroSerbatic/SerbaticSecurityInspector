@@ -6,7 +6,6 @@ import asyncio
 import time
 from collections.abc import Callable
 
-from app.agents.guides import run_guides
 from app.agents.profile import run_profile
 from app.agents.vulns import build_vuln_prompt, parse_findings, validate_finding
 from app.llm import LLMClient, LLMError
@@ -189,14 +188,6 @@ async def run_pipeline(
         if dupes:
             emit(run, "log", vulnId="global",
                  message=f"consolidados {dupes} hallazgo(s) duplicado(s) entre categorías")
-
-        # Oleada 3 (Fase 2d): guías de explotación — 1 llamada LLM por hallazgo
-        # (pool acotado). Solo con el run vivo: ERROR/CANCELLING se cierran en su rama.
-        if run.status == RunStatus.RUNNING and run.findings:
-            g_tokens, g_llm_s = await run_guides(llm, run.findings, scan, profile,
-                                                 project_name, run, concurrency)
-            total_tokens += g_tokens
-            total_llm_s += g_llm_s
 
         # Cierre del run
         if run.status == RunStatus.CANCELLING:
