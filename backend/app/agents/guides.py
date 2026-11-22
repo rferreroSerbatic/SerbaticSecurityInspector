@@ -6,8 +6,12 @@ con estructura obligatoria de 4 encabezados. Ver spec §5.1 (Fase 2d).
 
 from __future__ import annotations
 
+import asyncio
+
 from app.agents.profile import Profile
 from app.agents.vulns import VULN_NAMES
+from app.llm import LLMError
+from app.runs import RunStatus, emit
 
 GUIDE_MAX_TOKENS: int = 1600
 
@@ -80,3 +84,53 @@ def extract_guide(raw: str) -> str:
             lines = lines[:-1]
         text = "\n".join(lines).strip()
     return text
+
+
+async def run_guides(llm, findings, scan, profile, project_name, run, concurrency):
+    """Oleada 3 (Fase 2d): una llamada LLM por hallazgo, pool acotado por semáforo.
+
+    Muta ``finding["guide"]`` in situ (solo si la guía queda no vacía) y devuelve
+    ``(Σ completion_tokens, Σ elapsed_s)``. Patrón de ``agent()`` en
+    ``app/pipeline.py``: guard de estado terminal al tomar el semáforo (no gastar
+    la llamada) y descarte del resultado si el run pasa a terminal en vuelo
+    (la llamada ya se gastó). El fallo de una guía no falla el run: solo un log.
+    """
+    if not findings or run.status != RunStatus.RUNNING:
+        return 0, 0.0
+    n = len(findings)
+    emit(run, "log", vulnId="global",
+         message=f"Guías de explotación: {n} hallazgo(s) → generando…")
+    sem = asyncio.Semaphore(concurrency)
+    done = 0
+    tokens = 0
+    llm_s = 0.0
+
+    async def guide(f: dict) -> None:
+        nonlocal done, tokens, llm_s
+        async with sem:
+            if run.status in (RunStatus.CANCELLING, RunStatus.ERROR, RunStatus.CANCELLED):
+                return  # no gastar la llamada (cancel llegado en cola)
+            file_content = next(
+                (cf.content for cf in [*scan.files, *scan.manifests]
+                 if cf.path == f.get("file")), None)
+            system, user = build_guide_prompt(f, file_content, profile, project_name)
+            try:
+                res = await llm.chat(system, user, max_tokens=GUIDE_MAX_TOKENS)
+            except LLMError:
+                emit(run, "log", vulnId=f["vulnId"], message=f"Guía no disponible: {f['id']}")
+                return
+            if run.status in (RunStatus.CANCELLING, RunStatus.ERROR, RunStatus.CANCELLED):
+                return  # la llamada ya se gastó; se descarta (run terminal en vuelo)
+            tokens += res.completion_tokens
+            llm_s += res.elapsed_s
+            done += 1
+            guide_text = extract_guide(res.content)
+            if guide_text:
+                f["guide"] = guide_text
+                emit(run, "log", vulnId=f["vulnId"],
+                     message=f"Guía lista: {f['id']} ({done}/{n})")
+            else:
+                emit(run, "log", vulnId=f["vulnId"], message=f"Guía no disponible: {f['id']}")
+
+    await asyncio.gather(*(guide(f) for f in findings))
+    return tokens, llm_s
