@@ -134,6 +134,7 @@ export default function App({
             analysis={flow.analysis}
             selectedFindingIds={flow.selectedFindingIds}
             onToggleFinding={flow.toggleFinding}
+            onSetAllFindings={flow.setAllFindingIds}
             onGenerateScope={flow.openScope}
             onNewAudit={flow.newAudit}
             onBack={flow.goVulns}

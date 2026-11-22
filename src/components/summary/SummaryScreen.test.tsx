@@ -73,6 +73,7 @@ const renderScreen = (
   selectedFindingIds: string[] = [],
   handlers: {
     onToggleFinding?: (id: string) => void
+    onSetAllFindings?: (ids: string[]) => void
     onGenerateScope?: () => void
     onNewAudit?: () => void
     onBack?: () => void
@@ -85,6 +86,7 @@ const renderScreen = (
       analysis={analysis}
       selectedFindingIds={selectedFindingIds}
       onToggleFinding={handlers.onToggleFinding ?? (() => {})}
+      onSetAllFindings={handlers.onSetAllFindings ?? (() => {})}
       onGenerateScope={handlers.onGenerateScope ?? (() => {})}
       onNewAudit={handlers.onNewAudit ?? (() => {})}
       onBack={handlers.onBack ?? (() => {})}
@@ -195,6 +197,7 @@ test('marcar hallazgos actualiza el contador del pie y habilita generar', () => 
       analysis={base}
       selectedFindingIds={['A03-1']}
       onToggleFinding={onToggleFinding}
+      onSetAllFindings={() => {}}
       onGenerateScope={() => {}}
       onNewAudit={() => {}}
       onBack={() => {}}
@@ -351,4 +354,90 @@ test('duplicados entre categorías: tag +N con title listando las demás categor
 
   const tag = screen.getByText('+2')
   expect(tag).toHaveAttribute('title', 'También reportado por: A05, A06')
+})
+
+// --- Task 3 (Fase 2c): orden (criticidad | tipo) + marcar/desmarcar todos ---
+const mixed: Finding[] = [findings[3], findings[0], findings[1], findings[2]] // low, critical, high, medium
+
+const cardTitles = () =>
+  screen.getAllByTestId('finding-card').map(c => c.textContent ?? '')
+
+test('por defecto, orden por criticidad (el más crítico arriba)', () => {
+  renderScreen({ ...base, findings: mixed })
+  const t = cardTitles()
+  expect(t[0]).toContain('IDOR')
+  expect(t[1]).toContain('SQL injection')
+  expect(t[2]).toContain('API key')
+  expect(t[3]).toContain('Sin logs')
+})
+
+test('orden «TIPO»: grupos A01→A10; dentro del grupo, por criticidad', () => {
+  const extraA03: Finding = { ...findings[1], id: 'A03-2', severity: 'low', title: 'Otro hallazgo A03' }
+  const list: Finding[] = [extraA03, findings[3], findings[0], findings[2], findings[1]]
+  renderScreen({ ...base, findings: list })
+  fireEvent.click(screen.getByRole('button', { name: 'TIPO' }))
+  const t = cardTitles()
+  expect(t[0]).toContain('IDOR') // A01
+  expect(t[1]).toContain('API key') // A02
+  expect(t[2]).toContain('SQL injection') // A03 high (antes que el low)
+  expect(t[3]).toContain('Otro hallazgo A03') // A03 low
+  expect(t[4]).toContain('Sin logs') // A09
+})
+
+test('conmutar el orden re-renderiza la lista en ambos sentidos', () => {
+  renderScreen({ ...base, findings: mixed }) // [low A09, critical A01, high A03, medium A02]
+  // criticidad (default): critical → high → medium → low
+  expect(cardTitles()[0]).toContain('IDOR')
+  expect(cardTitles()[1]).toContain('SQL injection')
+  expect(cardTitles()[2]).toContain('API key')
+  expect(cardTitles()[3]).toContain('Sin logs')
+  // tipo: A01 → A02 → A03 → A09
+  fireEvent.click(screen.getByRole('button', { name: 'TIPO' }))
+  expect(cardTitles()[0]).toContain('IDOR')
+  expect(cardTitles()[1]).toContain('API key')
+  expect(cardTitles()[2]).toContain('SQL injection')
+  expect(cardTitles()[3]).toContain('Sin logs')
+  // de vuelta a criticidad
+  fireEvent.click(screen.getByRole('button', { name: 'CRITICIDAD' }))
+  expect(cardTitles()[0]).toContain('IDOR')
+  expect(cardTitles()[1]).toContain('SQL injection')
+  expect(cardTitles()[2]).toContain('API key')
+})
+
+test('MARCAR TODOS / DESMARCAR TODOS (alcance)', () => {
+  const onSetAllFindings = vi.fn()
+  const { rerender } = render(
+    <SummaryScreen
+      analysis={base}
+      selectedFindingIds={[]}
+      onToggleFinding={() => {}}
+      onSetAllFindings={onSetAllFindings}
+      onGenerateScope={() => {}}
+      onNewAudit={() => {}}
+      onBack={() => {}}
+    />,
+  )
+  expect(screen.getByText('0 DE 4 HALLAZGOS MARCADOS PARA EL ALCANCE')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /marcar todos/i }))
+  expect(onSetAllFindings).toHaveBeenCalledWith(['A01-1', 'A03-1', 'A02-1', 'A09-1'])
+
+  rerender(
+    <SummaryScreen
+      analysis={base}
+      selectedFindingIds={['A01-1', 'A03-1', 'A02-1', 'A09-1']}
+      onToggleFinding={() => {}}
+      onSetAllFindings={onSetAllFindings}
+      onGenerateScope={() => {}}
+      onNewAudit={() => {}}
+      onBack={() => {}}
+    />,
+  )
+  expect(screen.getByText('4 DE 4 HALLAZGOS MARCADOS PARA EL ALCANCE')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /desmarcar todos/i }))
+  expect(onSetAllFindings).toHaveBeenLastCalledWith([])
+})
+
+test('con 0 hallazgos, MARCAR TODOS está deshabilitado', () => {
+  renderScreen({ ...base, findings: [] })
+  expect(screen.getByRole('button', { name: /marcar todos/i })).toBeDisabled()
 })

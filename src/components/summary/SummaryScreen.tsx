@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { OWASP_VULNS } from '../../data/owasp'
 import type { AnalysisProgress, Severity } from '../../types'
 import { NeonButton } from '../ui/NeonButton'
@@ -19,6 +19,13 @@ const SEVERITY_ROWS: {
   { severity: 'low', color: 'bg-sev-low', singular: 'BAJO', plural: 'BAJOS' },
 ]
 
+const SEVERITY_RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+type OrderMode = 'severity' | 'type'
+const ORDER_OPTIONS: { value: OrderMode; label: string }[] = [
+  { value: 'severity', label: 'CRITICIDAD' },
+  { value: 'type', label: 'TIPO' },
+]
+
 // Separador de miles en formato español (3412 → «3.412»), determinista.
 const esFormat = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 
@@ -26,6 +33,7 @@ export function SummaryScreen({
   analysis,
   selectedFindingIds,
   onToggleFinding,
+  onSetAllFindings,
   onGenerateScope,
   onNewAudit,
   onBack,
@@ -35,6 +43,7 @@ export function SummaryScreen({
   analysis: AnalysisProgress
   selectedFindingIds: string[]
   onToggleFinding: (id: string) => void
+  onSetAllFindings: (ids: string[]) => void
   onGenerateScope: () => void
   onNewAudit: () => void
   onBack: () => void
@@ -44,6 +53,26 @@ export function SummaryScreen({
   projectName?: string
 }) {
   const { agents, findings, meta } = analysis
+
+  const [order, setOrder] = useState<OrderMode>('severity')
+
+  // Orden del listado (estable: igual criterio conserva el orden de llegada del motor).
+  const ordered = useMemo(() => {
+    const arr = [...findings]
+    if (order === 'severity') {
+      arr.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+    } else {
+      arr.sort((a, b) =>
+        a.vulnId === b.vulnId
+          ? SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
+          : a.vulnId < b.vulnId
+            ? -1
+            : 1,
+      )
+    }
+    return arr
+  }, [findings, order])
+
   const total = findings.length
   const counts: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0 }
   for (const f of findings) counts[f.severity] += 1
@@ -143,13 +172,34 @@ export function SummaryScreen({
           </div>
         </div>
 
+        {total > 0 && (
+          <div className="mb-3 flex items-center gap-2" role="group" aria-label="Orden de los hallazgos">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">ORDEN</span>
+            {ORDER_OPTIONS.map(o => (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={order === o.value}
+                onClick={() => setOrder(o.value)}
+                className={`border px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest transition-all duration-200 ${
+                  order === o.value
+                    ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                    : 'border-ink-faint text-ink-faint hover:border-ink-dim hover:text-ink-dim'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-col gap-2">
           {total === 0 ? (
             <p className="rounded-md border border-dashed border-ink-faint px-4 py-8 text-center text-sm text-ink-dim">
               Sin hallazgos para las vulnerabilidades seleccionadas.
             </p>
           ) : (
-            findings.map(f => {
+            ordered.map(f => {
               const vuln = VULN_BY_ID.get(f.vulnId)
               return vuln ? (
                 <FindingCard
@@ -172,6 +222,19 @@ export function SummaryScreen({
             <p className="font-mono text-[11px] uppercase tracking-widest text-ink-dim">
               {selectedFindingIds.length} DE {total} HALLAZGOS MARCADOS PARA EL ALCANCE
             </p>
+            {(() => {
+              const allMarked = total > 0 && findings.every(f => selectedFindingIds.includes(f.id))
+              return (
+                <button
+                  type="button"
+                  onClick={() => onSetAllFindings(allMarked ? [] : findings.map(f => f.id))}
+                  disabled={total === 0}
+                  className="font-mono text-xs uppercase tracking-widest text-ink-dim transition-colors duration-200 hover:text-neon-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {allMarked ? 'DESMARCAR TODOS' : 'MARCAR TODOS'}
+                </button>
+              )
+            })()}
             <button
               type="button"
               onClick={onBack}
