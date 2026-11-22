@@ -8,7 +8,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 
 from app.main import app
-from app.pdf_report import _MARGIN, build_report_pdf, build_scope_pdf
+from app.pdf_report import _MARGIN, _winansi, build_report_pdf, build_scope_pdf
 
 
 def _scope_content(data: bytes) -> bytes:
@@ -524,3 +524,60 @@ def test_report_pdf_aire_entre_apartados():
     assert len(date_y) == 1 and len(perfil_y) == 1
     # pre-fix: 5.2 (línea) + 8 (gap) = 13.2 mm
     assert date_y[0] - perfil_y[0] > 15 * mm
+
+
+# --- Task 4 (Fase 2d): bloque GUÍA DE EXPLOTACIÓN por hallazgo ---
+
+GUIDE = (
+    "## RESUMEN\nEl parámetro user se concatena directamente en la query.\n\n"
+    "## PASOS\n1. Llamar a GET /api/orders?user=1 OR 1=1--\n\n"
+    "## PAYLOAD DE EJEMPLO\n```\nuser=1 OR 1=1--\n```\n\n"
+    "## IMPACTO EN ESTE PROYECTO\nExposición completa de la tabla orders.\n"
+)
+
+
+def _b(s: str) -> bytes:
+    r"""La cadena tal y como aparece en el stream del PDF (pageCompression=0):
+    reportlab serializa las strings WinAnsi escapando los bytes < 32 o >= 127
+    como octal de 3 dígitos y contrabarra/paréntesis con backslash (misma
+    regla que _ESCAPEDICT; ver los literales b"P\341gina" / b"CR\315TICO"
+    de este fichero)."""
+    out = bytearray()
+    for byte in _winansi(s).encode("cp1252"):
+        if byte < 32 or byte >= 0x7F:
+            out += b"\\%03o" % byte
+        elif byte in (0x5C, 0x28, 0x29):
+            out += b"\\" + bytes((byte,))
+        else:
+            out.append(byte)
+    return bytes(out)
+
+
+def test_report_pdf_con_guide_dibuja_bloque():
+    data = build_report_pdf("miniapp", {}, {"files": 1, "lines": 10, "durationMin": 1},
+                            [_finding("A03", 4, guide=GUIDE)])
+    assert _b("GUÍA DE EXPLOTACIÓN:") in data
+    assert _b("RESUMEN") in data
+    assert _b("user=1 OR 1=1--") in data
+    assert data.index(_b("SOLUCIÓN:")) < data.index(_b("GUÍA DE EXPLOTACIÓN:"))
+
+
+def test_report_pdf_sin_guide_no_bloque():
+    data = build_report_pdf("miniapp", {}, {}, [_finding("A03", 4)])
+    assert _b("GUÍA DE EXPLOTACIÓN:") not in data
+
+
+def test_report_pdf_guide_larga_pagina_sin_crash():
+    """Review Focus 1: una guía de cientos de líneas pagina sin romperse."""
+    guide = "## RESUMEN\n" + "paso " * 80 + "\n" + "\n".join(f"línea {i}" for i in range(400))
+    data = build_report_pdf("miniapp", {}, {}, [_finding("A03", 4, guide=guide)])
+    assert data[:5] == b"%PDF-"
+    assert _b("GUÍA DE EXPLOTACIÓN:") in data
+
+
+def test_report_pdf_guide_caracteres_fuera_winansi():
+    """Review Focus 2: flechas/emoji → «?» vía _winansi, sin excepción."""
+    data = build_report_pdf("miniapp", {}, {},
+                            [_finding("A03", 4, guide="## RESUMEN\nataque → listo 🔒")])
+    assert data[:5] == b"%PDF-"
+    assert _b("GUÍA DE EXPLOTACIÓN:") in data

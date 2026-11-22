@@ -609,6 +609,36 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                 x += c.stringWidth(piece, _SNIPPET_FONT, _SNIPPET_SIZE)
             y -= _CODE_LINE_H
 
+    def guide_block(guide_text: str) -> None:
+        """Bloque GUÍA DE EXPLOTACIÓN del hallazgo: label + líneas de la guía.
+
+        Por línea de la guía: ``## X`` → subtítulo en negrita con color de
+        crítico; una línea que empieza por ``` alterna modo código (se
+        acumulan las líneas interiores y al cerrar se dibuja una
+        ``code_box`` con TextLexer, misma caja que los snippets; fence sin
+        cerrar al final → se vuelca lo acumulado como código); el resto de
+        líneas no vacías → ``line`` (texto normal).
+        """
+        line("GUÍA DE EXPLOTACIÓN:", font="Helvetica-Bold", size=9, color=_SEV["critical"])
+        in_code = False
+        code_lines: list[str] = []
+        for raw in guide_text.split("\n"):
+            if raw.startswith("```"):
+                if in_code:
+                    code_box("\n".join(code_lines), "guide.txt")
+                    code_lines = []
+                in_code = not in_code
+                continue
+            if in_code:
+                code_lines.append(raw)
+                continue
+            if raw.startswith("## "):
+                line(raw[3:].strip(), font="Helvetica-Bold", size=9, color=_SEV["critical"])
+            elif raw.strip():
+                line(raw)
+        if in_code:  # fence sin cerrar al final: se vuelca lo acumulado
+            code_box("\n".join(code_lines), "guide.txt")
+
     # Portada
     _draw_logo(c, y)
     y -= _LOGO_H + 10 * mm
@@ -720,6 +750,8 @@ def build_report_pdf(project_name: str, profile: dict, meta: dict, findings: lis
                 if f.get(key):
                     line(label, font="Helvetica-Bold", size=9, color=_ACCENT)
                     line(str(f[key]))
+            if f.get("guide"):
+                guide_block(str(f["guide"]))
             also = f.get("alsoCategories") or []
             if also:
                 line(f"También reportado como: {', '.join(str(a) for a in also)}",
