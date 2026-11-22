@@ -160,6 +160,9 @@ export default function App({
             onNewAudit={flow.newAudit}
             onBack={flow.goVulns}
             projectName={flow.source?.label ?? 'Proyecto'}
+            canGenerateGuide={inLive}
+            projectId={inLive ? flow.source?.value : undefined}
+            onGuideReady={flow.updateFindingGuide}
           />
         )
       default:

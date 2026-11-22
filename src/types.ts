@@ -22,7 +22,7 @@ export interface Finding {
   solution: string
   /** Otras categorías OWASP que reportaron este mismo hallazgo (desduplicación, Fase 2b). */
   alsoCategories?: string[]
-  /** Fase 2d: guía de explotación concreta (oleada 3 del pipeline; solo runs reales — el mock no lleva guía). */
+  /** Fase 2d.1: guía de explotación bajo demanda (al pinchar o al exportar; solo runs reales — el mock no lleva guía). */
   guide?: string
 }
 

@@ -18,6 +18,10 @@ export function FindingCard({
   expanded,
   onToggleSelect,
   onToggleExpand,
+  canGenerateGuide,
+  projectId,
+  profile,
+  onGuideReady,
 }: {
   finding: Finding
   vuln: Vuln
@@ -25,8 +29,44 @@ export function FindingCard({
   expanded: boolean
   onToggleSelect: () => void
   onToggleExpand: () => void
+  canGenerateGuide: boolean
+  projectId?: string
+  profile?: Record<string, unknown> | null
+  onGuideReady: (id: string, guide: string) => void
 }) {
   const [guideOpen, setGuideOpen] = useState(false)
+  const [guideLoading, setGuideLoading] = useState(false)
+  const [guideError, setGuideError] = useState<string | null>(null)
+  const [fetchedGuide, setFetchedGuide] = useState<string | null>(null)
+
+  // La guía efectiva: la del estado compartido (tras onGuideReady) o la local
+  // (para que el modal la muestre en el mismo tick, también en tests).
+  const effectiveGuide = finding.guide ?? fetchedGuide
+
+  const fetchGuide = async () => {
+    setGuideLoading(true)
+    setGuideError(null)
+    try {
+      const res = await fetch('/api/guides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, finding, profile: profile ?? undefined }),
+      })
+      if (!res.ok) throw new Error('bad status')
+      const data = (await res.json()) as { guide: string }
+      setFetchedGuide(data.guide)
+      onGuideReady(finding.id, data.guide)
+    } catch {
+      setGuideError('No se pudo generar la guía (¿backend caído?)')
+    } finally {
+      setGuideLoading(false)
+    }
+  }
+
+  const openGuide = () => {
+    setGuideOpen(true)
+    if (!effectiveGuide) void fetchGuide()
+  }
 
   return (
     <article data-testid="finding-card" className={`rounded-md border ${CARD_STYLES[finding.severity]}`}>
@@ -117,19 +157,29 @@ export function FindingCard({
               <span className="font-bold text-neon-cyan">SOLUCIÓN ·</span> {finding.solution}
             </p>
           </div>
-          {/* Fase 2d (ruling «siempre modo real»): sin guía real → sin botón. */}
-          {finding.guide && (
+          {/* Fase 2d.1: con guía real (vista) o modo live (se genera al pinchar);
+              en mock no hay botón (ruling «siempre modo real»). */}
+          {(finding.guide || canGenerateGuide) && (
             <NeonButton
               variant="outline"
               data-testid="exploit-guide-btn"
               className="self-start"
-              onClick={() => setGuideOpen(true)}
+              onClick={openGuide}
             >
               CÓMO EXPLOTAR ▸
             </NeonButton>
           )}
-          {guideOpen && finding.guide && (
-            <ExploitGuideModal finding={finding} vuln={vuln} onClose={() => setGuideOpen(false)} />
+          {/* Merged: si el estado compartido aún no refleja la guía (mismo tick,
+              o tests con props estáticas), el modal muestra la local. */}
+          {guideOpen && (
+            <ExploitGuideModal
+              finding={finding.guide ? finding : { ...finding, guide: fetchedGuide ?? undefined }}
+              vuln={vuln}
+              loading={guideLoading}
+              error={guideError}
+              onRetry={guideLoading ? undefined : fetchGuide}
+              onClose={() => setGuideOpen(false)}
+            />
           )}
         </div>
       )}

@@ -38,6 +38,9 @@ export function SummaryScreen({
   onNewAudit,
   onBack,
   projectName,
+  canGenerateGuide,
+  projectId,
+  onGuideReady,
 }: {
   analysis: AnalysisProgress
   selectedFindingIds: string[]
@@ -48,6 +51,9 @@ export function SummaryScreen({
   onBack: () => void
   /** Nombre del proyecto analizado (cabecera del informe PDF). */
   projectName?: string
+  canGenerateGuide: boolean
+  projectId?: string
+  onGuideReady: (id: string, guide: string) => void
 }) {
   const { agents, findings, meta } = analysis
 
@@ -87,30 +93,49 @@ export function SummaryScreen({
   const toggleExpand = (id: string) =>
     setExpandedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
-  // Informe PDF completo: el backend (Task 6) genera el documento y el front
-  // lo descarga (mismo patrón de blob que el PDF del alcance en ScopeModal).
+  const buildReportPayload = (withProject: boolean) =>
+    JSON.stringify({
+      projectName: projectName ?? 'Proyecto',
+      profile: analysis.profile ?? {},
+      meta: analysis.meta ?? {},
+      findings,
+      ...(withProject && projectId ? { projectId } : {}),
+    })
+
+  const saveReportBlob = async (res: Response) => {
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `informe-${(projectName ?? 'proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'proyecto'}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const downloadReport = async () => {
     setReportBusy(true)
     setReportError(null)
     try {
-      const res = await fetch('/api/reports/full-pdf', {
+      let res = await fetch('/api/reports/full-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectName: projectName ?? 'Proyecto',
-          profile: analysis.profile ?? {},
-          meta: analysis.meta ?? {},
-          findings,
-        }),
+        body: buildReportPayload(true),
       })
+      if (res.status === 404 && projectId) {
+        // El proyecto ya no es resoluble en el backend (p. ej. reinició): se
+        // exporta sin las guías faltantes y se avisa (diseño 2d.1).
+        res = await fetch('/api/reports/full-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: buildReportPayload(false),
+        })
+        if (!res.ok) throw new Error('bad status')
+        await saveReportBlob(res)
+        setReportError('Informe exportado sin las guías pendientes (el proyecto ya no está disponible)')
+        return
+      }
       if (!res.ok) throw new Error('bad status')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `informe-${(projectName ?? 'proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'proyecto'}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveReportBlob(res)
     } catch {
       setReportError('No se pudo generar el informe (¿backend caído?)')
     } finally {
@@ -223,6 +248,10 @@ export function SummaryScreen({
                   expanded={expandedIds.includes(f.id)}
                   onToggleSelect={() => onToggleFinding(f.id)}
                   onToggleExpand={() => toggleExpand(f.id)}
+                  canGenerateGuide={canGenerateGuide}
+                  projectId={projectId}
+                  profile={analysis.profile ?? null}
+                  onGuideReady={onGuideReady}
                 />
               ) : null
             })

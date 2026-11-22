@@ -89,6 +89,11 @@ const renderScreen = (
     onBack?: () => void
   } = {},
   projectName?: string,
+  guideProps: {
+    canGenerateGuide?: boolean
+    projectId?: string
+    onGuideReady?: (id: string, guide: string) => void
+  } = {},
 ) =>
   render(
     <SummaryScreen
@@ -100,6 +105,9 @@ const renderScreen = (
       onNewAudit={handlers.onNewAudit ?? (() => {})}
       onBack={handlers.onBack ?? (() => {})}
       projectName={projectName}
+      canGenerateGuide={guideProps.canGenerateGuide ?? false}
+      projectId={guideProps.projectId}
+      onGuideReady={guideProps.onGuideReady ?? (() => {})}
     />,
   )
 
@@ -225,6 +233,8 @@ test('marcar hallazgos actualiza el contador del pie y habilita generar', () => 
       onGenerateScope={() => {}}
       onNewAudit={() => {}}
       onBack={() => {}}
+      canGenerateGuide={false}
+      onGuideReady={() => {}}
     />,
   )
 
@@ -427,6 +437,8 @@ test('MARCAR TODOS / DESMARCAR TODOS (alcance)', () => {
       onGenerateScope={() => {}}
       onNewAudit={() => {}}
       onBack={() => {}}
+      canGenerateGuide={false}
+      onGuideReady={() => {}}
     />,
   )
   expect(screen.getByText('0 DE 4 HALLAZGOS MARCADOS PARA EL ALCANCE')).toBeInTheDocument()
@@ -442,6 +454,8 @@ test('MARCAR TODOS / DESMARCAR TODOS (alcance)', () => {
       onGenerateScope={() => {}}
       onNewAudit={() => {}}
       onBack={() => {}}
+      canGenerateGuide={false}
+      onGuideReady={() => {}}
     />,
   )
   expect(screen.getByText('4 DE 4 HALLAZGOS MARCADOS PARA EL ALCANCE')).toBeInTheDocument()
@@ -479,4 +493,97 @@ test('abre el modal de la guía y se cierra con CERRAR', () => {
   expect(screen.getByText('GET /api/users/1024')).toBeInTheDocument()
   fireEvent.click(screen.getByTestId('guide-close'))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+// --- Fase 2d.1: guía bajo demanda (al pinchar) + export con projectId ---
+
+test('live: botón CÓMO EXPLOTAR también en hallazgos sin guía (se genera al pinchar)', () => {
+  renderScreen(base, [], {}, 'P', { canGenerateGuide: true })
+  // A01-1 (crítico, expandido por defecto) no lleva guía -> aun así hay botón
+  expect(screen.getAllByTestId('exploit-guide-btn')).toHaveLength(1)
+})
+
+test('pinchar sin guía: POST /api/guides, estado de carga y luego contenido', async () => {
+  const guide = '## RESUMEN\nguía generada al vuelo\n## PAYLOAD DE EJEMPLO\n```\nGET /api/users/1024\n```'
+  const fetchMock = vi.fn(async (url: string, _init: RequestInit) =>
+    url === '/api/guides'
+      ? new Response(JSON.stringify({ guide }), { status: 200 })
+      : new Response(null, { status: 404 }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  const onGuideReady = vi.fn()
+  renderScreen(base, [], {}, 'P', { canGenerateGuide: true, projectId: 'miniapp', onGuideReady })
+
+  fireEvent.click(screen.getByTestId('exploit-guide-btn'))
+  expect(screen.getByTestId('guide-loading')).toBeInTheDocument()
+
+  await act(async () => {})
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+  expect(body.projectId).toBe('miniapp')
+  expect(body.finding).toEqual(base.findings[0])
+  expect(onGuideReady).toHaveBeenCalledWith('A01-1', guide)
+  expect(screen.getByText('RESUMEN')).toBeInTheDocument()
+  expect(screen.getByTestId('guide-close')).toBeInTheDocument()
+})
+
+test('pinchar sin guía y fallo: estado error + REINTENTAR regenera', async () => {
+  const guide = '## RESUMEN\nguía tras reintento'
+  let calls = 0
+  const fetchMock = vi.fn(async () => {
+    calls += 1
+    return calls === 1
+      ? new Response(null, { status: 502 })
+      : new Response(JSON.stringify({ guide }), { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  renderScreen(base, [], {}, 'P', { canGenerateGuide: true, projectId: 'miniapp' })
+
+  fireEvent.click(screen.getByTestId('exploit-guide-btn'))
+  await act(async () => {})
+  expect(screen.getByTestId('guide-error')).toBeInTheDocument()
+
+  fireEvent.click(screen.getByTestId('guide-retry'))
+  await act(async () => {})
+  expect(screen.getByText('RESUMEN')).toBeInTheDocument()
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+test('export live: el body de full-pdf lleva projectId', async () => {
+  const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => new Response('%PDF-1.4 fake', { status: 200 }))
+  vi.stubGlobal('fetch', fetchMock)
+  URL.createObjectURL = vi.fn(() => 'blob:mock')
+  URL.revokeObjectURL = vi.fn()
+  renderScreen(base, [], {}, 'Mi Proyecto', { projectId: 'miniapp' })
+  vi.useFakeTimers()
+  fireEvent.click(screen.getByRole('button', { name: /exportar resultados a pdf/i }))
+  await act(async () => {})
+  vi.useRealTimers()
+  const [, init] = fetchMock.mock.calls[0]
+  expect(JSON.parse(init.body as string).projectId).toBe('miniapp')
+})
+
+test('export: 404 con projectId -> reintento sin projectId + nota (proyecto no resoluble)', async () => {
+  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+    const body = init ? JSON.parse(init.body as string) : {}
+    return body.projectId
+      ? new Response(null, { status: 404 })
+      : new Response('%PDF-1.4 fake', { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  URL.createObjectURL = vi.fn(() => 'blob:mock')
+  URL.revokeObjectURL = vi.fn()
+  renderScreen(base, [], {}, 'P', { projectId: 'miniapp' })
+  vi.useFakeTimers()
+  fireEvent.click(screen.getByRole('button', { name: /exportar resultados a pdf/i }))
+  await act(async () => {})
+  vi.useRealTimers()
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  const first = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+  const second = JSON.parse(fetchMock.mock.calls[1][1].body as string)
+  expect(first.projectId).toBe('miniapp')
+  expect(second.projectId).toBeUndefined()
+  expect(URL.createObjectURL).toHaveBeenCalled()
+  expect(screen.getByText('Informe exportado sin las guías pendientes (el proyecto ya no está disponible)'))
+    .toBeInTheDocument()
 })

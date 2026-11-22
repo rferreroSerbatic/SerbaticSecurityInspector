@@ -30,6 +30,7 @@ export interface UseAnalysis {
   backToHome(): void
   toggleFinding(id: string): void
   setAllFindingIds(ids: string[]): void
+  updateFindingGuide: (id: string, guide: string) => void
   openScope(): void
   closeScope(): void
   newAudit(): void
@@ -122,6 +123,13 @@ export function useAnalysis(service: AnalysisService): UseAnalysis {
     setSelectedFindingIds(ids)
   }, [])
 
+  const updateFindingGuide = useCallback((id: string, guide: string) => {
+    setAnalysis(prev => ({
+      ...prev,
+      findings: prev.findings.map(f => (f.id === id ? { ...f, guide } : f)),
+    }))
+  }, [])
+
   const openScope = useCallback(() => {
     setScopeOpen(true)
   }, [])
@@ -158,6 +166,7 @@ export function useAnalysis(service: AnalysisService): UseAnalysis {
     backToHome,
     toggleFinding,
     setAllFindingIds,
+    updateFindingGuide,
     openScope,
     closeScope,
     newAudit,
