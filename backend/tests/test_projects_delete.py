@@ -79,3 +79,24 @@ def test_delete_while_running_409(env_dirs):
         assert c.delete(f"/api/projects/{pid}").status_code == 409
         assert pid in LOCAL  # sigue registrado
         RUNS.active = None  # cleanup (el fixture autouse también limpia)
+
+
+def test_delete_git_project_con_packs_readonly(env_dirs):
+    # git-for-windows deja los packs read-only; rmtree debe limpiar el bit (E2E 2c).
+    import os
+    import stat
+
+    clone = env_dirs / "workspace" / "repos" / "github.com-x-y-d4e5f6"
+    packdir = clone / ".git" / "objects" / "pack"
+    packdir.mkdir(parents=True)
+    (clone / "a.js").write_text("const a = 1;\n", encoding="utf-8")
+    for name in ("pack-deadbeef.pack", "pack-deadbeef.idx", "pack-deadbeef.rev"):
+        f = packdir / name
+        f.write_bytes(b"\x00" * 8)
+        os.chmod(f, stat.S_IREAD)  # atributo read-only real en NTFS
+    GIT["git-x-y-d4e5f6"] = clone
+    with TestClient(app) as c:
+        r = c.delete("/api/projects/git-x-y-d4e5f6")
+        assert r.status_code == 200
+        assert r.json() == {"ok": True, "kind": "git"}
+        assert not clone.exists()  # los packs read-only no pueden sobrevivir

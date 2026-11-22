@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import shutil
+import stat
 import subprocess
 import urllib.parse
 from pathlib import Path
@@ -120,5 +122,11 @@ def remove_git(project_id: str) -> bool:
     dest = GIT.pop(project_id, None)
     if dest is None:
         return False
-    shutil.rmtree(dest, ignore_errors=True)
-    return True
+
+    def _onexc(func, p, exc):
+        # git-for-windows deja los packs read-only; rmtree no limpia el bit en Windows.
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+
+    shutil.rmtree(dest, onexc=_onexc)
+    return not dest.exists()
