@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Finding, Severity, Vuln } from '../../types'
 import { NeonButton } from '../ui/NeonButton'
 import { SeverityBadge } from '../ui/SeverityBadge'
@@ -39,11 +39,24 @@ export function FindingCard({
   const [guideError, setGuideError] = useState<string | null>(null)
   const [fetchedGuide, setFetchedGuide] = useState<string | null>(null)
 
+  // Unmount: una fetch en vuelo no debe tocar el estado compartido tardío
+  // (newAudit puede haber reseteado a IDLE y los ids de hallazgo colisionan).
+  // El setup rearma la bandera: en dev, StrictMode hace setup→cleanup→setup
+  // conservando los refs (sin rearme, alive quedaría a false para siempre).
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+
   // La guía efectiva: la del estado compartido (tras onGuideReady) o la local
   // (para que el modal la muestre en el mismo tick, también en tests).
   const effectiveGuide = finding.guide ?? fetchedGuide
 
   const fetchGuide = async () => {
+    if (guideLoading) return
     setGuideLoading(true)
     setGuideError(null)
     try {
@@ -54,6 +67,7 @@ export function FindingCard({
       })
       if (!res.ok) throw new Error('bad status')
       const data = (await res.json()) as { guide: string }
+      if (!alive.current) return
       setFetchedGuide(data.guide)
       onGuideReady(finding.id, data.guide)
     } catch {

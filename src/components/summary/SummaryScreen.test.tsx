@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { AnalysisProgress, Finding } from '../../types'
@@ -586,4 +587,57 @@ test('export: 404 con projectId -> reintento sin projectId + nota (proyecto no r
   expect(URL.createObjectURL).toHaveBeenCalled()
   expect(screen.getByText('Informe exportado sin las guías pendientes (el proyecto ya no está disponible)'))
     .toBeInTheDocument()
+})
+
+test('unmount durante la carga: la guia tardia no toca el estado compartido', async () => {
+  let resolveGuide: (r: Response) => void = () => {}
+  const fetchMock = vi.fn(
+    () =>
+      new Promise<Response>(res => {
+        resolveGuide = res
+      }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  const onGuideReady = vi.fn()
+  const { unmount } = renderScreen(base, [], {}, 'P', {
+    canGenerateGuide: true,
+    projectId: 'miniapp',
+    onGuideReady,
+  })
+  fireEvent.click(screen.getByTestId('exploit-guide-btn'))
+  unmount()
+  await act(async () => {
+    resolveGuide(new Response(JSON.stringify({ guide: '## RESUMEN\nguía tardía' }), { status: 200 }))
+  })
+  expect(onGuideReady).not.toHaveBeenCalled()
+})
+
+test('dev (StrictMode, doble efecto): la guia bajo demanda sigue llegando', async () => {
+  const guide = '## RESUMEN\nguía strict'
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify({ guide }), { status: 200 }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  const onGuideReady = vi.fn()
+  render(
+    <StrictMode>
+      <SummaryScreen
+        analysis={base}
+        selectedFindingIds={[]}
+        onToggleFinding={() => {}}
+        onSetAllFindings={() => {}}
+        onGenerateScope={() => {}}
+        onNewAudit={() => {}}
+        onBack={() => {}}
+        projectName="P"
+        canGenerateGuide
+        projectId="miniapp"
+        onGuideReady={onGuideReady}
+      />
+    </StrictMode>,
+  )
+  fireEvent.click(screen.getByTestId('exploit-guide-btn'))
+  await act(async () => {})
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  expect(onGuideReady).toHaveBeenCalledWith('A01-1', guide)
 })
