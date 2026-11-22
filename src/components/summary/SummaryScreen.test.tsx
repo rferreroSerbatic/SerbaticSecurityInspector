@@ -441,3 +441,11 @@ test('con 0 hallazgos, MARCAR TODOS está deshabilitado', () => {
   renderScreen({ ...base, findings: [] })
   expect(screen.getByRole('button', { name: /marcar todos/i })).toBeDisabled()
 })
+
+// --- QA-iter 4 (usuario): MARCAR TODOS visible en la fila de control (antes enterrado en el pie) ---
+test('MARCAR TODOS está en la fila de control superior (no en el footer) y con borde visible', () => {
+  renderScreen()
+  const btn = screen.getByRole('button', { name: /marcar todos/i })
+  expect(btn.closest('footer')).not.toBeInTheDocument()
+  expect(btn).toHaveClass('border')
+})

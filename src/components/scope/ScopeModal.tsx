@@ -69,10 +69,12 @@ export function ScopeModal({
   // PDF real: el backend (reportlab) genera el documento y el front lo descarga.
   const generatePdf = () => {
     setPdfBusy(true)
+    // QA-iter 4: nombre dinámico con el proyecto analizado (misma regla que informe-<proyecto>.pdf).
+    const slug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     fetch('/api/reports/scope-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, projectName }),
     })
       .then(async res => {
         if (!res.ok) throw new Error('Error ' + res.status)
@@ -80,7 +82,7 @@ export function ScopeModal({
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = 'alcance.pdf'
+        a.download = `alcance-${slug || 'proyecto'}.pdf`
         a.click()
         URL.revokeObjectURL(url)
         showToast('PDF descargado')

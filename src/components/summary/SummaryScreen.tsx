@@ -74,6 +74,7 @@ export function SummaryScreen({
   }, [findings, order])
 
   const total = findings.length
+  const allMarked = total > 0 && findings.every(f => selectedFindingIds.includes(f.id))
   const counts: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0 }
   for (const f of findings) counts[f.severity] += 1
 
@@ -172,26 +173,41 @@ export function SummaryScreen({
           </div>
         </div>
 
-        {total > 0 && (
-          <div className="mb-3 flex items-center gap-2" role="group" aria-label="Orden de los hallazgos">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">ORDEN</span>
-            {ORDER_OPTIONS.map(o => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={order === o.value}
-                onClick={() => setOrder(o.value)}
-                className={`border px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest transition-all duration-200 ${
-                  order === o.value
-                    ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                    : 'border-ink-faint text-ink-faint hover:border-ink-dim hover:text-ink-dim'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {total > 0 && (
+            <div className="flex items-center gap-2" role="group" aria-label="Orden de los hallazgos">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">ORDEN</span>
+              {ORDER_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={order === o.value}
+                  onClick={() => setOrder(o.value)}
+                  className={`border px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest transition-all duration-200 ${
+                    order === o.value
+                      ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                      : 'border-ink-faint text-ink-faint hover:border-ink-dim hover:text-ink-dim'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* QA-iter 4: el botón vive aquí (arriba, con borde), no enterrado en el pie. */}
+          <button
+            type="button"
+            onClick={() => onSetAllFindings(allMarked ? [] : findings.map(f => f.id))}
+            disabled={total === 0}
+            className={`ml-auto border px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest transition-all duration-200 ${
+              total === 0
+                ? 'cursor-not-allowed border-ink-faint text-ink-faint opacity-40'
+                : 'border-neon-cyan/40 text-neon-cyan hover:border-neon-cyan hover:shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+            }`}
+          >
+            {allMarked ? 'DESMARCAR TODOS' : 'MARCAR TODOS'}
+          </button>
+        </div>
 
         <div className="mt-6 flex flex-col gap-2">
           {total === 0 ? (
@@ -222,19 +238,6 @@ export function SummaryScreen({
             <p className="font-mono text-[11px] uppercase tracking-widest text-ink-dim">
               {selectedFindingIds.length} DE {total} HALLAZGOS MARCADOS PARA EL ALCANCE
             </p>
-            {(() => {
-              const allMarked = total > 0 && findings.every(f => selectedFindingIds.includes(f.id))
-              return (
-                <button
-                  type="button"
-                  onClick={() => onSetAllFindings(allMarked ? [] : findings.map(f => f.id))}
-                  disabled={total === 0}
-                  className="font-mono text-xs uppercase tracking-widest text-ink-dim transition-colors duration-200 hover:text-neon-cyan disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {allMarked ? 'DESMARCAR TODOS' : 'MARCAR TODOS'}
-                </button>
-              )
-            })()}
             <button
               type="button"
               onClick={onBack}

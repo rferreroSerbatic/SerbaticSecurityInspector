@@ -153,6 +153,28 @@ test('GENERAR PDF pide el PDF al backend y lo descarga', async () => {
   vi.unstubAllGlobals()
 })
 
+test('GENERAR PDF envía projectName y descarga con nombre dinámico alcance-<proyecto>.pdf', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response('%PDF-1.4 fake', { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  URL.createObjectURL = vi.fn(() => 'blob:mock')
+  URL.revokeObjectURL = vi.fn()
+  const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click')
+  renderModal()
+
+  fireEvent.click(screen.getByRole('button', { name: /generar pdf/i }))
+  await act(async () => {})
+
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+  expect(body.projectName).toBe(PROJECT) // 'webapp-acme'
+  const anchor = clickSpy.mock.instances[0] as unknown as HTMLAnchorElement // a.click(): el ancla es `this`
+  expect(anchor.download).toBe('alcance-webapp-acme.pdf')
+
+  clickSpy.mockRestore()
+  vi.unstubAllGlobals()
+})
+
 test('GENERAR PDF con el backend caído muestra el error sin lanzar', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('down')))
   renderModal()
