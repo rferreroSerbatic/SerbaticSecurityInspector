@@ -77,3 +77,8 @@ def local_analyze(project_id: str) -> tuple[ProjectInfo, ScanResult] | None:
     if not scan.files:
         return None
     return _info(root, project_id, scan), scan
+
+
+def remove_local(project_id: str) -> bool:
+    """Desregistra un proyecto local. NUNCA toca la carpeta del usuario."""
+    return LOCAL.pop(project_id, None) is not None

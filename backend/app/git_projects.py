@@ -113,3 +113,12 @@ def git_analyze(project_id: str) -> tuple[ProjectInfo, ScanResult] | None:
     if not scan.files:
         return None
     return _info(dest, project_id, scan, _slug_of(dest)), scan
+
+
+def remove_git(project_id: str) -> bool:
+    """Desregistra un proyecto git y borra su clon del workspace."""
+    dest = GIT.pop(project_id, None)
+    if dest is None:
+        return False
+    shutil.rmtree(dest, ignore_errors=True)
+    return True

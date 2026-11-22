@@ -13,13 +13,13 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_settings
-from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git
+from app.git_projects import GIT, GitCloneError, git_analyze, git_list, register_git, remove_git
 from app.llm import LLMClient
-from app.local_projects import LOCAL, local_analyze, local_list, register_local, resolve_local
+from app.local_projects import LOCAL, local_analyze, local_list, register_local, remove_local, resolve_local
 from app.pdf_report import build_report_pdf, build_scope_pdf
 from app.pipeline import ALL_VULN_IDS, run_pipeline
 from app.projects import get_project, list_projects
-from app.runs import TERMINAL, TERMINAL_EVENTS, RunRegistry, RunState
+from app.runs import TERMINAL, TERMINAL_EVENTS, RunRegistry, RunState, RunStatus
 from app.scanner import ScanResult
 
 app = FastAPI(title="Serbatic Security Inspector API")
@@ -93,6 +93,43 @@ def add_git_project(body: GitProjectBody):
     except GitCloneError as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo clonar: {exc}")
     return {"project": info}
+
+
+def _is_sample(project_id: str) -> bool:
+    """¿Es un proyecto de ejemplo dentro de samples/ (no eliminable)?"""
+    if not project_id or project_id in {".", ".."}:
+        return False
+    samples = load_settings().samples_dir
+    entry = samples / project_id
+    if entry.resolve().parent != samples.resolve():
+        return False
+    return entry.is_dir()
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: str):
+    """Elimina un proyecto propio: local → solo desregistra; git → borra el clon del
+    workspace. Los proyectos de ejemplo no se eliminan (409).
+
+    `def` a propósito: el rmtree del clon git es I/O de disco (threadpool).
+    """
+    active = RUNS.active
+    if (
+        active is not None
+        and active.project_id == project_id
+        and active.status in (RunStatus.RUNNING, RunStatus.CANCELLING)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Hay un análisis en curso para este proyecto; cancela antes de eliminarlo",
+        )
+    if remove_local(project_id):
+        return {"ok": True, "kind": "local"}
+    if remove_git(project_id):
+        return {"ok": True, "kind": "git"}
+    if _is_sample(project_id):
+        raise HTTPException(status_code=409, detail="Los proyectos de ejemplo no se pueden eliminar")
+    raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
 
 def _route_key(p: Path) -> str:
