@@ -89,9 +89,10 @@ test('autodetección: /api/projects con 0 proyectos → modo mock (M2)', async (
   const analizar = await screen.findByRole('button', { name: /analizar aplicación/i })
   fireEvent.click(analizar)
 
-  // Modo mock: tab de carpeta local + proyectos demo, no la lista live (que quedaría vacía).
+  // Modo mock: tab de carpeta local sin proyectos demo (QA-iter 8: retirados),
+  // no la lista live (que quedaría vacía).
   expect(await screen.findByRole('tab', { name: /carpeta local/i })).toBeTruthy()
-  expect((await screen.findAllByText(/webapp-acme/)).length).toBeGreaterThanOrEqual(1)
+  expect(screen.queryAllByText(/webapp-acme|api-billing|portal-rrhh/)).toHaveLength(0)
   expect(screen.queryByText(/AUDITAR UN PROYECTO PROPIO/i)).not.toBeInTheDocument()
 })
 

@@ -28,20 +28,6 @@ test('continuar está deshabilitado sin fuente', () => {
   expect(continueBtn()).toBeDisabled()
 })
 
-test('elegir un proyecto mock habilita continuar y pasa un Source folder', () => {
-  const spy = vi.fn()
-  renderScreen(spy)
-  fireEvent.click(screen.getByRole('radio', { name: /webapp-acme/ }))
-  expect(continueBtn()).toBeEnabled()
-  fireEvent.click(continueBtn())
-  expect(spy).toHaveBeenCalledOnce()
-  expect(spy).toHaveBeenCalledWith({
-    kind: 'folder',
-    label: 'webapp-acme',
-    value: 'C:\\proyectos\\webapp-acme',
-  })
-})
-
 test('rechaza URLs inválidas: vacía, "notaunaurl", con espacios', () => {
   renderScreen()
   openGitTab()
@@ -103,17 +89,6 @@ test('seleccionar una carpeta real muestra confirmación y habilita CONTINUAR', 
   expect(continueBtn()).toBeEnabled()
   fireEvent.click(continueBtn())
   expect(spy).toHaveBeenCalledWith({ kind: 'folder', label: 'mi-carpeta', value: 'mi-carpeta' })
-})
-
-test('elegir carpeta real deselecciona el proyecto demo (prioridad de la carpeta)', () => {
-  const spy = vi.fn()
-  renderScreen(spy)
-  fireEvent.click(screen.getByRole('radio', { name: /webapp-acme/i }))
-  const input = screen.getByLabelText(/seleccionar carpeta local/i)
-  fireEvent.change(input, { target: { files: [folderFile('otra-carpeta/x.py')] } })
-  expect(screen.getByRole('radio', { name: /webapp-acme/i })).toHaveAttribute('aria-checked', 'false')
-  fireEvent.click(continueBtn())
-  expect(spy).toHaveBeenCalledWith({ kind: 'folder', label: 'otra-carpeta', value: 'otra-carpeta' })
 })
 
 test('carpeta vacía (0 archivos) no selecciona nada', () => {
