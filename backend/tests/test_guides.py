@@ -63,7 +63,7 @@ def test_extract_guide_vacio():
 
 import asyncio
 
-from app.agents.guides import run_guides
+from app.agents.guides import find_file_content, one_guide, run_guides
 from app.llm import ChatResult, LLMError
 from app.runs import RunRegistry, RunStatus
 from app.scanner import CodeFile, ScanResult
@@ -174,3 +174,42 @@ def test_run_guides_buscarchivo_incluido_en_prompt():
     asyncio.run(run_guides(llm, fs, scan, None, "p", run, concurrency=1))
     assert "SQL" in llm.users[0]      # orders.js está en el scan → contenido incluido
     assert "SQL" not in llm.users[1]   # ghost.js no: solo snippet, sin crash
+
+
+def test_find_file_content_localiza_el_archivo_del_hallazgo():
+    assert find_file_content(scan, _finding("A01-1", "A01")) == "const l1 = 'SQL';\n" * 9 + "l10"
+    assert find_file_content(scan, _finding("A01-1", "A01", file="no-existe.js")) is None
+
+
+def test_one_guide_devuelve_texto_limpio():
+    llm = FakeGuideLLM()
+    g = asyncio.run(one_guide(llm, _finding("A03-1", "A03"), "content", None, "miniapp"))
+    assert g == llm.canned
+
+
+def test_one_guide_llm_error_da_none():
+    llm = FakeGuideLLM(fail_indexes={0})
+    assert asyncio.run(one_guide(llm, _finding("A03-1", "A03"), None, None, "p")) is None
+
+
+def test_one_guide_vacio_da_none():
+    llm = FakeGuideLLM(canned="```\n```")
+    assert asyncio.run(one_guide(llm, _finding("A03-1", "A03"), None, None, "p")) is None
+
+
+def test_run_guides_run_none_genera_sus_guias():
+    fs = [_finding("A01-1", "A01"), _finding("A03-1", "A03", file="routes/admin.js")]
+    llm = FakeGuideLLM()
+    tokens, llm_s = asyncio.run(run_guides(llm, fs, scan, None, "miniapp", None, concurrency=2))
+    assert (tokens, llm_s) == (0, 0.0)
+    assert all(f["guide"] == llm.canned for f in fs)
+    assert llm.calls == 2
+
+
+def test_run_guides_run_none_fallo_no_falla():
+    fs = [_finding("A01-1", "A01"), _finding("A03-1", "A03", file="routes/admin.js")]
+    llm = FakeGuideLLM(fail_indexes={0})
+    # concurrency=1: determinista (la llamada 0 es la del primer finding)
+    asyncio.run(run_guides(llm, fs, scan, None, "p", None, concurrency=1))
+    assert "guide" not in fs[0]
+    assert fs[1]["guide"] == llm.canned

@@ -86,16 +86,50 @@ def extract_guide(raw: str) -> str:
     return text
 
 
-async def run_guides(llm, findings, scan, profile, project_name, run, concurrency):
+def find_file_content(scan, finding: dict) -> str | None:
+    """Contenido del archivo que apunta el hallazgo (o None si no está en el escaneo)."""
+    return next((cf.content for cf in [*scan.files, *scan.manifests]
+                 if cf.path == finding.get("file")), None)
+
+
+async def one_guide(llm, finding: dict, file_content: str | None,
+                    profile: Profile | None, project_name: str) -> str | None:
+    """Guía de un hallazgo: 1 llamada LLM. ``None`` si el LLM falla o el texto queda vacío."""
+    system, user = build_guide_prompt(finding, file_content, profile, project_name)
+    try:
+        res = await llm.chat(system, user, max_tokens=GUIDE_MAX_TOKENS)
+    except LLMError:
+        return None
+    return extract_guide(res.content) or None
+
+
+async def run_guides(llm, findings, scan, profile, project_name, run=None, concurrency=3):
     """Oleada 3 (Fase 2d): una llamada LLM por hallazgo, pool acotado por semáforo.
 
     Muta ``finding["guide"]`` in situ (solo si la guía queda no vacía) y devuelve
-    ``(Σ completion_tokens, Σ elapsed_s)``. Patrón de ``agent()`` en
-    ``app/pipeline.py``: guard de estado terminal al tomar el semáforo (no gastar
-    la llamada) y descarte del resultado si el run pasa a terminal en vuelo
-    (la llamada ya se gastó). El fallo de una guía no falla el run: solo un log.
+    ``(Σ completion_tokens, Σ elapsed_s)``. Con ``run`` (pipeline): patrón de
+    ``agent()`` en ``app/pipeline.py`` — guard de estado terminal al tomar el
+    semáforo (no gastar la llamada) y descarte del resultado si el run pasa a
+    terminal en vuelo (la llamada ya se gastó); el fallo de una guía no falla el
+    run: solo un log. Con ``run=None`` (Fase 2d.1, export bajo demanda): sin
+    guards ni eventos; devuelve ``(0, 0.0)``.
     """
-    if not findings or run.status != RunStatus.RUNNING:
+    if not findings:
+        return 0, 0.0
+    if run is None:
+        # Fase 2d.1: export bajo demanda — sin run no hay guards ni eventos.
+        sem = asyncio.Semaphore(concurrency)
+
+        async def g(f):
+            async with sem:
+                text = await one_guide(llm, f, find_file_content(scan, f),
+                                       profile, project_name)
+                if text:
+                    f["guide"] = text
+
+        await asyncio.gather(*(g(f) for f in findings))
+        return 0, 0.0
+    if run.status != RunStatus.RUNNING:
         return 0, 0.0
     n = len(findings)
     emit(run, "log", vulnId="global",
@@ -110,9 +144,7 @@ async def run_guides(llm, findings, scan, profile, project_name, run, concurrenc
         async with sem:
             if run.status in (RunStatus.CANCELLING, RunStatus.ERROR, RunStatus.CANCELLED):
                 return  # no gastar la llamada (cancel llegado en cola)
-            file_content = next(
-                (cf.content for cf in [*scan.files, *scan.manifests]
-                 if cf.path == f.get("file")), None)
+            file_content = find_file_content(scan, f)
             system, user = build_guide_prompt(f, file_content, profile, project_name)
             try:
                 res = await llm.chat(system, user, max_tokens=GUIDE_MAX_TOKENS)
