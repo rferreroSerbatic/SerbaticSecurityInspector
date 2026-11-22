@@ -334,6 +334,8 @@ test('EXPORTAR RESULTADOS A PDF: POST a /api/reports/full-pdf y descarga (QA-ite
   // QA-iter 7: el botón se ve «activo» en hover (variante accent cian).
   expect(btn).toHaveClass('border-neon-cyan/50')
   fireEvent.click(btn)
+  // QA: mientras el informe se genera, el botón muestra spinner + GENERANDO…
+  expect(screen.getByTestId('report-spinner')).toBeInTheDocument()
   await act(async () => {})
   vi.useRealTimers()
 
@@ -517,6 +519,7 @@ test('pinchar sin guía: POST /api/guides, estado de carga y luego contenido', a
 
   fireEvent.click(screen.getByTestId('exploit-guide-btn'))
   expect(screen.getByTestId('guide-loading')).toBeInTheDocument()
+  expect(screen.getByTestId('guide-spinner')).toBeInTheDocument()
 
   await act(async () => {})
   expect(fetchMock).toHaveBeenCalledTimes(1)

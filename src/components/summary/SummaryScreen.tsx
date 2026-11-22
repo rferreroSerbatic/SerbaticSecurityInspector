@@ -276,7 +276,18 @@ export function SummaryScreen({
               NUEVA AUDITORÍA
             </NeonButton>
             <NeonButton variant="accent" onClick={downloadReport} disabled={total === 0 || reportBusy}>
-              {reportBusy ? 'GENERANDO…' : 'EXPORTAR RESULTADOS A PDF'}
+              {reportBusy ? (
+                <span className="flex items-center gap-2">
+                  <span
+                    data-testid="report-spinner"
+                    aria-hidden
+                    className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent"
+                  />
+                  GENERANDO…
+                </span>
+              ) : (
+                'EXPORTAR RESULTADOS A PDF'
+              )}
             </NeonButton>
             <NeonButton onClick={onGenerateScope} disabled={selectedFindingIds.length === 0}>
               GENERAR ALCANCE DE MEJORA ▸
